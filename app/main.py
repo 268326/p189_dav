@@ -944,20 +944,30 @@ def api_cache_list():
     if not session.get('logged_in'):
         return jsonify({'error': '未登录'}), 401
 
+    file_id_to_path: dict[int, tuple[str, float]] = {}
+    for path, (file_id, cache_time) in path_cache.items():
+        current = file_id_to_path.get(file_id)
+        if current is None or cache_time > current[1]:
+            file_id_to_path[file_id] = (path, cache_time)
+
     path_items = []
     for path, (file_id, cache_time) in path_cache.items():
         meta = _cache_meta(cache_time, PATH_CACHE_EXPIRATION)
         path_items.append({
             "path": path,
-            "file_id": file_id,
+            "file_id": str(file_id),
             **meta
         })
 
     url_items = []
     for file_id, (url, cache_time) in url_cache.items():
+        file_path = file_id_to_path.get(file_id, ("", 0))[0]
+        file_name = Path(file_path).name if file_path else ""
         meta = _cache_meta(cache_time, CACHE_EXPIRATION)
         url_items.append({
-            "file_id": file_id,
+            "file_id": str(file_id),
+            "file_path": file_path,
+            "file_name": file_name,
             "url": url,
             **meta
         })

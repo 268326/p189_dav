@@ -358,6 +358,8 @@
             width: 100%;
             border-collapse: collapse;
             font-size: 13px;
+            min-width: 780px;
+            table-layout: fixed;
         }
 
         .cache-table th,
@@ -378,6 +380,52 @@
             max-width: 360px;
             word-break: break-all;
             font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+
+        .cell-id {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .cell-main {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .cell-main.expanded {
+            white-space: normal;
+            word-break: break-all;
+        }
+
+        .cell-actions {
+            margin-top: 6px;
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .btn-mini {
+            padding: 4px 8px;
+            font-size: 11px;
+            border-radius: 6px;
+            border: 1px solid #d0d0d0;
+            background: #fff;
+            color: #1e3c72;
+            cursor: pointer;
+        }
+
+        .btn-mini:hover {
+            background: #1e3c72;
+            color: white;
+        }
+
+        .time-block {
+            line-height: 1.4;
             font-size: 12px;
         }
 
@@ -812,6 +860,28 @@
                 </div>
 
                 <div class="config-item" style="margin-top: 15px;">
+                    <h4 style="margin-bottom: 10px; color: #1e3c72;"><i class="fas fa-link"></i> 链接缓存</h4>
+                    <div class="cache-table-wrap">
+                        <table class="cache-table">
+                            <thead>
+                                <tr>
+                                    <th style="width:18%;">文件ID</th>
+                                    <th style="width:16%;">文件名</th>
+                                    <th style="width:34%;">下载链接</th>
+                                    <th style="width:16%;">创建时间</th>
+                                    <th style="width:16%;">有效期</th>
+                                    <th style="width:10%;">剩余</th>
+                                    <th style="width:6%;">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="urlCacheBody">
+                                <tr><td class="cache-empty" colspan="7">加载中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="config-item" style="margin-top: 15px;">
                     <h4 style="margin-bottom: 10px; color: #1e3c72;"><i class="fas fa-folder"></i> 路径缓存</h4>
                     <div class="cache-table-wrap">
                         <table class="cache-table">
@@ -826,27 +896,6 @@
                                 </tr>
                             </thead>
                             <tbody id="pathCacheBody">
-                                <tr><td class="cache-empty" colspan="6">加载中...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="config-item" style="margin-top: 15px;">
-                    <h4 style="margin-bottom: 10px; color: #1e3c72;"><i class="fas fa-link"></i> 链接缓存</h4>
-                    <div class="cache-table-wrap">
-                        <table class="cache-table">
-                            <thead>
-                                <tr>
-                                    <th style="width:18%;">文件ID</th>
-                                    <th style="width:34%;">下载链接</th>
-                                    <th style="width:16%;">创建时间</th>
-                                    <th style="width:16%;">有效期</th>
-                                    <th style="width:10%;">剩余</th>
-                                    <th style="width:6%;">操作</th>
-                                </tr>
-                            </thead>
-                            <tbody id="urlCacheBody">
                                 <tr><td class="cache-empty" colspan="6">加载中...</td></tr>
                             </tbody>
                         </table>
@@ -1278,6 +1327,38 @@ GET http://your-ip:8515/d/path/to/file.mkv</pre>
                 .replace(/'/g, '&#39;');
         }
 
+        function formatDateTime(value) {
+            if (!value || value === '-') return '-';
+            const parts = String(value).split(' ');
+            if (parts.length < 2) return escapeHtml(value);
+            return `<div class="time-block">${escapeHtml(parts[0])}<br>${escapeHtml(parts.slice(1).join(' '))}</div>`;
+        }
+
+        async function copyText(text) {
+            try {
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(text);
+                } else {
+                    const temp = document.createElement('textarea');
+                    temp.value = text;
+                    document.body.appendChild(temp);
+                    temp.select();
+                    document.execCommand('copy');
+                    temp.remove();
+                }
+                showNotification('已复制', 'success');
+            } catch (e) {
+                showNotification('复制失败', 'error');
+            }
+        }
+
+        function toggleExpand(btn) {
+            const cell = btn.closest('td').querySelector('.cell-main');
+            if (!cell) return;
+            const expanded = cell.classList.toggle('expanded');
+            btn.textContent = expanded ? '收起' : '展开';
+        }
+
         function renderPathCache(list) {
             const body = document.getElementById('pathCacheBody');
             if (!list || list.length === 0) {
@@ -1286,10 +1367,18 @@ GET http://your-ip:8515/d/path/to/file.mkv</pre>
             }
             body.innerHTML = list.map(item => `
                 <tr>
-                    <td class="cache-cell">${escapeHtml(item.path || '-')}</td>
-                    <td>${item.file_id ?? '-'}</td>
-                    <td>${item.created_at || '-'}</td>
-                    <td>${item.expires_at || '-'}</td>
+                    <td class="cache-cell">
+                        <div class="cell-main" title="${escapeHtml(item.path || '-')}">${escapeHtml(item.path || '-')}</div>
+                        <div class="cell-actions">
+                            <button class="btn-mini" onclick='copyText(${JSON.stringify(item.path || "")})'>复制</button>
+                            <button class="btn-mini" onclick="toggleExpand(this)">展开</button>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="cell-id" title="${item.file_id ?? '-'}">${item.file_id ?? '-'}</div>
+                    </td>
+                    <td>${formatDateTime(item.created_at || '-')}</td>
+                    <td>${formatDateTime(item.expires_at || '-')}</td>
                     <td>${formatRemaining(item.remaining_seconds)}</td>
                     <td>
                         <button class="btn btn-danger" style="padding:6px 10px;font-size:12px;" onclick="deletePathCache('${(item.path || '').replace(/'/g, "\\'")}')">
@@ -1303,15 +1392,30 @@ GET http://your-ip:8515/d/path/to/file.mkv</pre>
         function renderUrlCache(list) {
             const body = document.getElementById('urlCacheBody');
             if (!list || list.length === 0) {
-                body.innerHTML = '<tr><td class="cache-empty" colspan="6">暂无缓存数据</td></tr>';
+                body.innerHTML = '<tr><td class="cache-empty" colspan="7">暂无缓存数据</td></tr>';
                 return;
             }
             body.innerHTML = list.map(item => `
                 <tr>
-                    <td>${item.file_id ?? '-'}</td>
-                    <td class="cache-cell">${escapeHtml(item.url || '-')}</td>
-                    <td>${item.created_at || '-'}</td>
-                    <td>${item.expires_at || '-'}</td>
+                    <td>
+                        <div class="cell-id" title="${item.file_id ?? '-'}">${item.file_id ?? '-'}</div>
+                    </td>
+                    <td class="cache-cell">
+                        <div class="cell-main" title="${escapeHtml(item.file_name || '-')}">${escapeHtml(item.file_name || '-')}</div>
+                        <div class="cell-actions">
+                            <button class="btn-mini" onclick='copyText(${JSON.stringify(item.file_name || "")})'>复制</button>
+                            <button class="btn-mini" onclick="toggleExpand(this)">展开</button>
+                        </div>
+                    </td>
+                    <td class="cache-cell">
+                        <div class="cell-main" title="${escapeHtml(item.url || '-')}">${escapeHtml(item.url || '-')}</div>
+                        <div class="cell-actions">
+                            <button class="btn-mini" onclick='copyText(${JSON.stringify(item.url || "")})'>复制</button>
+                            <button class="btn-mini" onclick="toggleExpand(this)">展开</button>
+                        </div>
+                    </td>
+                    <td>${formatDateTime(item.created_at || '-')}</td>
+                    <td>${formatDateTime(item.expires_at || '-')}</td>
                     <td>${formatRemaining(item.remaining_seconds)}</td>
                     <td>
                         <button class="btn btn-danger" style="padding:6px 10px;font-size:12px;" onclick="deleteUrlCache('${item.file_id}')">
@@ -1333,7 +1437,7 @@ GET http://your-ip:8515/d/path/to/file.mkv</pre>
                 renderUrlCache(data.url_cache);
             } catch (e) {
                 document.getElementById('pathCacheBody').innerHTML = '<tr><td class="cache-empty" colspan="6">加载失败</td></tr>';
-                document.getElementById('urlCacheBody').innerHTML = '<tr><td class="cache-empty" colspan="6">加载失败</td></tr>';
+                document.getElementById('urlCacheBody').innerHTML = '<tr><td class="cache-empty" colspan="7">加载失败</td></tr>';
                 showNotification('加载缓存失败: ' + e.message, 'error');
             }
         }
