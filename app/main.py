@@ -408,13 +408,33 @@ def get_189_cookies():
         return jsonify({'error': '天翼网盘未登录'}), 400
     
     try:
-        # 获取 cookies
         cookies_dict = {}
-        for cookie in client.session.cookies:
-            cookies_dict[cookie.name] = cookie.value
-        
-        # 转换为字符串格式
-        cookies_str = '; '.join([f'{k}={v}' for k, v in cookies_dict.items()])
+        cookies_str = ""
+
+        # 优先使用客户端自身的 cookies 字符串（更稳定）
+        if hasattr(client, "cookies_str") and isinstance(client.cookies_str, str):
+            cookies_str = client.cookies_str
+            for pair in cookies_str.split(";"):
+                if "=" in pair:
+                    key, value = pair.strip().split("=", 1)
+                    if key:
+                        cookies_dict[key] = value
+        else:
+            # 兼容 requests cookiejar 或 dict/字符串等情况
+            raw_cookies = getattr(client, "session", None)
+            raw_cookies = getattr(raw_cookies, "cookies", raw_cookies)
+            if isinstance(raw_cookies, dict):
+                cookies_dict = dict(raw_cookies)
+            else:
+                try:
+                    for cookie in raw_cookies:
+                        if hasattr(cookie, "name") and hasattr(cookie, "value"):
+                            cookies_dict[cookie.name] = cookie.value
+                except TypeError:
+                    pass
+
+            if cookies_dict:
+                cookies_str = '; '.join([f'{k}={v}' for k, v in cookies_dict.items()])
         
         return jsonify({
             'success': True,
