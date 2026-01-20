@@ -12,19 +12,24 @@ import time
 import secrets
 import logging
 import threading
+import re
+import html
+from collections import deque
 from pathlib import Path
 from urllib.parse import unquote
 
 from flask import Flask, request, jsonify, session, redirect, url_for, render_template
 from dotenv import load_dotenv
+import requests
 
 # 加载环境变量
 load_dotenv(dotenv_path="db/user.env", override=True)
 
 from p189client import P189Client, check_response
 
+LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
 
 # Flask 应用
 app = Flask(__name__, template_folder='templates', static_folder='static')
@@ -64,6 +69,12 @@ MAX_CACHE_302LINK = get_int_env("MAX_CACHE_302LINK", 100)
 CACHE_EXPIRATION = get_int_env("CACHE_EXPIRATION", 720) * 60  # 默认 720 分钟
 PATH_CACHE_EXPIRATION = get_int_env("PATH_CACHE_EXPIRATION", 12) * 3600  # 默认 12 小时
 
+# Telegram Bot 配置
+TG_BOT_TOKEN = get_env("TG_BOT_TOKEN", "")
+TG_BOT_NOTIFY_CHAT_IDS = get_env("TG_BOT_NOTIFY_CHAT_IDS", "")
+TG_BOT_USER_WHITELIST = get_env("TG_BOT_USER_WHITELIST", "")
+LOG_BUFFER_MAX = get_int_env("LOG_BUFFER_MAX", 1000)
+
 # 全局客户端实例
 client: P189Client | None = None
 client_lock = threading.Lock()
@@ -76,6 +87,137 @@ url_cache: dict[int, tuple[str, float]] = {}
 
 # 预缓存锁
 precache_lock = threading.Lock()
+
+# 日志缓冲区（用于 /189log）
+log_buffer: deque[str] = deque(maxlen=LOG_BUFFER_MAX)
+
+
+class LogBufferHandler(logging.Handler):
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            message = self.format(record)
+        except Exception:
+            message = record.getMessage()
+        log_buffer.append(message)
+
+
+_buffer_handler = LogBufferHandler()
+_buffer_handler.setFormatter(logging.Formatter(LOG_FORMAT))
+logging.getLogger().addHandler(_buffer_handler)
+
+
+def _parse_whitelist(value: str) -> set[str]:
+    entries = [v.strip() for v in value.split(",") if v.strip()]
+    return set(entries)
+
+
+TG_NOTIFY_CHAT_SET = _parse_whitelist(TG_BOT_NOTIFY_CHAT_IDS)
+TG_USER_WHITELIST_SET = _parse_whitelist(TG_BOT_USER_WHITELIST)
+
+
+def _is_user_allowed(user_id: str) -> bool:
+    return bool(TG_USER_WHITELIST_SET) and user_id in TG_USER_WHITELIST_SET
+
+
+def _tg_send_message(chat_id: str, text: str, parse_mode: str | None = None) -> None:
+    if not TG_BOT_TOKEN:
+        return
+    try:
+        payload = {
+            "chat_id": chat_id,
+            "text": text,
+            "disable_web_page_preview": True,
+        }
+        if parse_mode:
+            payload["parse_mode"] = parse_mode
+        requests.post(
+            f"https://api.telegram.org/bot{TG_BOT_TOKEN}/sendMessage",
+            data=payload,
+            timeout=10,
+        )
+    except Exception as e:
+        logger.warning(f"发送 Telegram 消息失败: {e}")
+
+
+def _notify_failure(file_path: str, error: str) -> None:
+    if not TG_BOT_TOKEN or not TG_NOTIFY_CHAT_SET:
+        return
+    message = f"302 获取直链失败\n路径: {file_path}\n错误: {error}"
+    for chat_id in TG_NOTIFY_CHAT_SET:
+        _tg_send_message(chat_id, message)
+
+
+def _split_message(text: str, limit: int = 3800) -> list[str]:
+    if len(text) <= limit:
+        return [text]
+    parts = []
+    current = []
+    length = 0
+    for line in text.splitlines():
+        line_len = len(line) + 1
+        if length + line_len > limit and current:
+            parts.append("\n".join(current))
+            current = [line]
+            length = line_len
+        else:
+            current.append(line)
+            length += line_len
+    if current:
+        parts.append("\n".join(current))
+    return parts
+
+
+def _sanitize_log_line(line: str) -> str:
+    line = line.replace("\x1b", "")
+    line = re.sub(r"\x1b\[[0-9;]*m", "", line)
+    line = re.sub(r"\[[0-9;]*m", "", line)
+    return line
+
+
+def _send_log_to_chat(chat_id: str, lines: list[str]) -> None:
+    cleaned = [_sanitize_log_line(line) for line in lines]
+    payload = "\n".join(cleaned).strip()
+    if not payload:
+        _tg_send_message(chat_id, "暂无日志")
+        return
+    for part in _split_message(payload):
+        safe_part = html.escape(part)
+        _tg_send_message(chat_id, f"<pre>{safe_part}</pre>", parse_mode="HTML")
+
+
+def _bot_polling_loop() -> None:
+    if not TG_BOT_TOKEN:
+        return
+    if not TG_USER_WHITELIST_SET:
+        logger.warning("Telegram 机器人未配置用户白名单，/189log 将拒绝所有用户")
+    offset = 0
+    while True:
+        try:
+            resp = requests.get(
+                f"https://api.telegram.org/bot{TG_BOT_TOKEN}/getUpdates",
+                params={"timeout": 30, "offset": offset},
+                timeout=35,
+            )
+            data = resp.json()
+            if not data.get("ok"):
+                time.sleep(2)
+                continue
+            for update in data.get("result", []):
+                offset = update.get("update_id", offset) + 1
+                message = update.get("message") or update.get("edited_message") or {}
+                text = message.get("text", "")
+                if not text.startswith("/189log"):
+                    continue
+                user_id = str(message.get("from", {}).get("id", ""))
+                chat_id = str(message.get("chat", {}).get("id", ""))
+                if not _is_user_allowed(user_id):
+                    _tg_send_message(chat_id, "未授权的用户")
+                    continue
+                lines = list(log_buffer)[-100:]
+                _send_log_to_chat(chat_id, lines)
+        except Exception as e:
+            logger.warning(f"Telegram 轮询异常: {e}")
+            time.sleep(2)
 
 
 def get_client() -> P189Client:
@@ -768,6 +910,7 @@ def api_clear_cache():
 @app.route('/d/<path:file_path>')
 def handle_download(file_path):
     """302 重定向到下载链接（/d/ 前缀）"""
+    full_path = ""
     try:
         # URL 解码
         query_part = request.query_string.decode('utf-8')
@@ -790,6 +933,7 @@ def handle_download(file_path):
         return redirect(download_url, code=302)
     except Exception as e:
         logger.error(f"下载处理异常: {str(e)}")
+        _notify_failure(full_path, str(e))
         return jsonify({'error': str(e)}), 500
 
 
@@ -801,6 +945,7 @@ def handle_root_download(file_path):
     if file_path.startswith(excluded_prefixes) or file_path in ('', 'login'):
         return jsonify({'error': '路径不存在'}), 404
     
+    full_path = ""
     try:
         # URL 解码
         query_part = request.query_string.decode('utf-8')
@@ -823,6 +968,7 @@ def handle_root_download(file_path):
         return redirect(download_url, code=302)
     except Exception as e:
         logger.error(f"下载处理异常: {str(e)}")
+        _notify_failure(full_path, str(e))
         return jsonify({'error': str(e)}), 500
 
 
@@ -831,6 +977,9 @@ def handle_root_download(file_path):
 if __name__ == "__main__":
     # 初始化客户端
     init_client()
+
+    if TG_BOT_TOKEN:
+        threading.Thread(target=_bot_polling_loop, daemon=True).start()
     
     port = get_int_env("PORT", 8515)
     host = get_env("HOST", "0.0.0.0")

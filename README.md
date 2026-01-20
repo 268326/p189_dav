@@ -112,6 +112,10 @@ http://your-ip:8515/d/电影/test.mkv
 | `CACHE_EXPIRATION` | 下载链接缓存时间（分钟） | `720` |
 | `PATH_CACHE_EXPIRATION` | 路径缓存时间（小时） | `12` |
 | `MAX_CACHE_302LINK` | 预缓存最大数量 | `100` |
+| `TG_BOT_TOKEN` | Telegram Bot Token（留空关闭） | - |
+| `TG_BOT_NOTIFY_CHAT_IDS` | 接收通知的 Chat ID（逗号分隔） | - |
+| `TG_BOT_USER_WHITELIST` | 允许使用 /189log 的用户ID白名单（逗号分隔） | - |
+| `LOG_BUFFER_MAX` | 日志缓冲最大行数 | `1000` |
 
 ### 登录优先级
 
@@ -144,6 +148,11 @@ http://your-ip:8515/d/电影/test.mkv
 | `/api/clear-cache` | POST | 清除缓存 |
 | `/d/{path}` | GET | 302 重定向到直链（推荐） |
 | `/{path}` | GET | 302 重定向到直链 |
+
+## 🤖 Telegram 通知
+
+- 当 302 获取直链失败时，机器人会通知 `TG_BOT_NOTIFY_CHAT_IDS` 中的 chat
+- 支持命令 `/189log` 获取容器内最近 100 行日志（仅 `TG_BOT_USER_WHITELIST` 用户）
 
 ## 📺 与 Emby/Jellyfin 配合使用
 
