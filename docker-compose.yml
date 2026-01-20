@@ -1,0 +1,51 @@
+services:
+  tianyi-302:
+    # 使用 GitHub Container Registry 镜像（支持 amd64/arm64）
+    image: ghcr.io/268326/p189_dav:latest
+    # 或者本地构建：取消下面注释，注释上面的 image
+    # build: .
+    container_name: tianyi-302
+    restart: always
+    ports:
+      - "8515:8515"
+    volumes:
+      # 持久化数据目录（cookies、配置等）
+      - ./db:/app/db
+    environment:
+      # ========== 时区设置 ==========
+      - TZ=Asia/Shanghai
+      
+      # ========== Web 管理界面配置 ==========
+      # Web 后台登录用户名
+      - ENV_WEB_PASSPORT=admin
+      # Web 后台登录密码
+      - ENV_WEB_PASSWORD=123456
+      
+      # ========== 服务配置 ==========
+      # 服务端口
+      - PORT=8515
+      # 服务监听地址
+      - HOST=0.0.0.0
+      
+      # ========== 天翼网盘登录配置 ==========
+      # 推荐通过 Web 界面扫码登录，cookies 会自动保存到文件
+      # 方式1: 使用 cookies 文件（推荐，自动持久化）
+      - ENV_189_COOKIES_FILE=/app/db/cookies.txt
+      # 方式2: 使用账号密码（需要关闭设备锁 https://e.dlife.cn/user/index.do）
+      # - ENV_189_USERNAME=手机号或邮箱
+      # - ENV_189_PASSWORD=密码
+      # 方式3: 直接使用 cookies 字符串
+      # - ENV_189_COOKIES=cookies字符串
+      
+      # ========== 缓存配置 ==========
+      # 下载链接缓存有效期（分钟），设为 0 关闭缓存，默认 720（12小时）
+      - CACHE_EXPIRATION=0
+      # 路径到文件ID的缓存有效期（小时），设为 0 关闭缓存，默认 12
+      - PATH_CACHE_EXPIRATION=0
+      # 预缓存同目录其他文件的最大数量，设为 0 关闭预缓存
+      - MAX_CACHE_302LINK=0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8515/api/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
