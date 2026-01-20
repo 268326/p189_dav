@@ -332,6 +332,61 @@
             border-color: #1e3c72;
         }
 
+        /* 缓存列表 */
+        .cache-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .cache-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .cache-table-wrap {
+            background: white;
+            border-radius: 10px;
+            border: 1px solid #e0e0e0;
+            overflow-x: auto;
+        }
+
+        .cache-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .cache-table th,
+        .cache-table td {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .cache-table th {
+            background: #f4f4f4;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .cache-cell {
+            max-width: 360px;
+            word-break: break-all;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+
+        .cache-empty {
+            text-align: center;
+            color: #666;
+            padding: 20px 10px;
+        }
+
         /* QR Code */
         .qrcode-container {
             text-align: center;
@@ -656,6 +711,9 @@
             <button class="tab" onclick="switchTab('config')">
                 <i class="fas fa-cog"></i> 配置管理
             </button>
+            <button class="tab" onclick="switchTab('cache')">
+                <i class="fas fa-layer-group"></i> 缓存列表
+            </button>
             <button class="tab" onclick="switchTab('usage')">
                 <i class="fas fa-book"></i> 使用说明
             </button>
@@ -738,6 +796,65 @@
             </button>
         </div>
 
+        <!-- 缓存列表 Tab -->
+        <div id="tab-cache" class="tab-content">
+            <div class="section">
+                <div class="cache-header">
+                    <h2><i class="fas fa-layer-group"></i> 缓存列表</h2>
+                    <div class="cache-actions">
+                        <button class="btn" onclick="loadCache()">
+                            <i class="fas fa-rotate"></i> 刷新
+                        </button>
+                        <button class="btn btn-danger" onclick="clearCache()">
+                            <i class="fas fa-trash-alt"></i> 清空缓存
+                        </button>
+                    </div>
+                </div>
+
+                <div class="config-item" style="margin-top: 15px;">
+                    <h4 style="margin-bottom: 10px; color: #1e3c72;"><i class="fas fa-folder"></i> 路径缓存</h4>
+                    <div class="cache-table-wrap">
+                        <table class="cache-table">
+                            <thead>
+                                <tr>
+                                    <th style="width:30%;">缓存路径</th>
+                                    <th style="width:12%;">文件ID</th>
+                                    <th style="width:16%;">创建时间</th>
+                                    <th style="width:16%;">有效期</th>
+                                    <th style="width:12%;">剩余</th>
+                                    <th style="width:14%;">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pathCacheBody">
+                                <tr><td class="cache-empty" colspan="6">加载中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="config-item" style="margin-top: 15px;">
+                    <h4 style="margin-bottom: 10px; color: #1e3c72;"><i class="fas fa-link"></i> 链接缓存</h4>
+                    <div class="cache-table-wrap">
+                        <table class="cache-table">
+                            <thead>
+                                <tr>
+                                    <th style="width:18%;">文件ID</th>
+                                    <th style="width:34%;">下载链接</th>
+                                    <th style="width:16%;">创建时间</th>
+                                    <th style="width:16%;">有效期</th>
+                                    <th style="width:10%;">剩余</th>
+                                    <th style="width:6%;">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="urlCacheBody">
+                                <tr><td class="cache-empty" colspan="6">加载中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- 使用说明 Tab -->
         <div id="tab-usage" class="tab-content">
             <div class="section">
@@ -791,6 +908,11 @@ GET http://your-ip:8515/d/path/to/file.mkv</pre>
                             <td style="padding:10px;border:1px solid #ddd;">清除缓存</td>
                         </tr>
                         <tr>
+                            <td style="padding:10px;border:1px solid #ddd;"><code>/api/cache</code></td>
+                            <td style="padding:10px;border:1px solid #ddd;">GET</td>
+                            <td style="padding:10px;border:1px solid #ddd;">获取缓存详情</td>
+                        </tr>
+                        <tr>
                             <td style="padding:10px;border:1px solid #ddd;"><code>/d/{path}</code></td>
                             <td style="padding:10px;border:1px solid #ddd;">GET</td>
                             <td style="padding:10px;border:1px solid #ddd;">302 重定向到直链</td>
@@ -833,6 +955,9 @@ GET http://your-ip:8515/d/path/to/file.mkv</pre>
             
             event.target.closest('.tab').classList.add('active');
             document.getElementById('tab-' + tabName).classList.add('active');
+            if (tabName === 'cache') {
+                loadCache();
+            }
         }
 
         // 检查状态
@@ -1129,8 +1254,119 @@ GET http://your-ip:8515/d/path/to/file.mkv</pre>
                 await fetch('/api/clear-cache', { method: 'POST' });
                 showNotification('缓存已清除', 'success');
                 checkStatus();
+                loadCache();
             } catch (e) {
                 showNotification('清除失败', 'error');
+            }
+        }
+
+        function formatRemaining(seconds) {
+            if (seconds === undefined || seconds === null) return '-';
+            if (seconds < 0) return '不限';
+            if (seconds === 0) return '已过期';
+            if (seconds < 60) return seconds + 's';
+            if (seconds < 3600) return Math.round(seconds / 60) + 'm';
+            return Math.round(seconds / 3600) + 'h';
+        }
+
+        function escapeHtml(text) {
+            return String(text)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function renderPathCache(list) {
+            const body = document.getElementById('pathCacheBody');
+            if (!list || list.length === 0) {
+                body.innerHTML = '<tr><td class="cache-empty" colspan="6">暂无缓存数据</td></tr>';
+                return;
+            }
+            body.innerHTML = list.map(item => `
+                <tr>
+                    <td class="cache-cell">${escapeHtml(item.path || '-')}</td>
+                    <td>${item.file_id ?? '-'}</td>
+                    <td>${item.created_at || '-'}</td>
+                    <td>${item.expires_at || '-'}</td>
+                    <td>${formatRemaining(item.remaining_seconds)}</td>
+                    <td>
+                        <button class="btn btn-danger" style="padding:6px 10px;font-size:12px;" onclick="deletePathCache('${(item.path || '').replace(/'/g, "\\'")}')">
+                            <i class="fas fa-trash"></i> 删除
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function renderUrlCache(list) {
+            const body = document.getElementById('urlCacheBody');
+            if (!list || list.length === 0) {
+                body.innerHTML = '<tr><td class="cache-empty" colspan="6">暂无缓存数据</td></tr>';
+                return;
+            }
+            body.innerHTML = list.map(item => `
+                <tr>
+                    <td>${item.file_id ?? '-'}</td>
+                    <td class="cache-cell">${escapeHtml(item.url || '-')}</td>
+                    <td>${item.created_at || '-'}</td>
+                    <td>${item.expires_at || '-'}</td>
+                    <td>${formatRemaining(item.remaining_seconds)}</td>
+                    <td>
+                        <button class="btn btn-danger" style="padding:6px 10px;font-size:12px;" onclick="deleteUrlCache('${item.file_id}')">
+                            <i class="fas fa-trash"></i> 删除
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function loadCache() {
+            try {
+                const resp = await fetch('/api/cache');
+                const data = await resp.json();
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                renderPathCache(data.path_cache);
+                renderUrlCache(data.url_cache);
+            } catch (e) {
+                document.getElementById('pathCacheBody').innerHTML = '<tr><td class="cache-empty" colspan="6">加载失败</td></tr>';
+                document.getElementById('urlCacheBody').innerHTML = '<tr><td class="cache-empty" colspan="6">加载失败</td></tr>';
+                showNotification('加载缓存失败: ' + e.message, 'error');
+            }
+        }
+
+        async function deletePathCache(path) {
+            if (!path) return;
+            try {
+                await fetch('/api/cache/path', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ path })
+                });
+                loadCache();
+                checkStatus();
+                showNotification('路径缓存已删除', 'success');
+            } catch (e) {
+                showNotification('删除失败: ' + e.message, 'error');
+            }
+        }
+
+        async function deleteUrlCache(fileId) {
+            if (!fileId) return;
+            try {
+                await fetch('/api/cache/url', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ file_id: fileId })
+                });
+                loadCache();
+                checkStatus();
+                showNotification('链接缓存已删除', 'success');
+            } catch (e) {
+                showNotification('删除失败: ' + e.message, 'error');
             }
         }
 

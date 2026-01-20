@@ -19,11 +19,8 @@ from pathlib import Path
 from urllib.parse import unquote
 
 from flask import Flask, request, jsonify, session, redirect, url_for, render_template
-from dotenv import load_dotenv
+from dotenv import dotenv_values
 import requests
-
-# 加载环境变量
-load_dotenv(dotenv_path="db/user.env", override=True)
 
 from p189client import P189Client, check_response
 
@@ -42,14 +39,28 @@ ENV_FILE_PATH = os.path.join('db', 'user.env')
 # 确保 db 目录存在
 os.makedirs('db', exist_ok=True)
 
-# 从环境变量获取配置
+def _load_env_file(path: str) -> dict[str, str]:
+    if not os.path.exists(path):
+        return {}
+    values = dotenv_values(path)
+    return {key: value for key, value in values.items() if value is not None}
+
+
+ENV_FILE_VALUES = _load_env_file(ENV_FILE_PATH)
+
+
+# 从 db/user.env 获取配置（不读取 compose 环境变量）
 def get_env(key, default=""):
-    return os.getenv(key, default)
+    value = ENV_FILE_VALUES.get(key)
+    if value is None or value == "":
+        return default
+    return value
+
 
 def get_int_env(key, default=0):
     try:
-        value = os.getenv(key, str(default))
-        return int(value) if value else default
+        value = get_env(key, str(default))
+        return int(value) if value != "" else default
     except (ValueError, TypeError):
         logger.warning(f"环境变量 {key} 值不是有效的整数，使用默认值 {default}")
         return default
@@ -903,6 +914,91 @@ def api_clear_cache():
     path_cache.clear()
     url_cache.clear()
     return jsonify({'success': True, 'message': '缓存已清除'})
+
+
+def _format_ts(ts: float) -> str:
+    return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ts))
+
+
+def _cache_meta(cache_time: float, ttl_seconds: int) -> dict:
+    if ttl_seconds <= 0:
+        return {
+            "created_at": _format_ts(cache_time),
+            "expires_at": "-",
+            "ttl_seconds": ttl_seconds,
+            "remaining_seconds": -1,
+        }
+    expires_at = cache_time + ttl_seconds
+    remaining = max(0, int(expires_at - time.time()))
+    return {
+        "created_at": _format_ts(cache_time),
+        "expires_at": _format_ts(expires_at),
+        "ttl_seconds": ttl_seconds,
+        "remaining_seconds": remaining,
+    }
+
+
+@app.route('/api/cache')
+def api_cache_list():
+    """获取缓存详情"""
+    if not session.get('logged_in'):
+        return jsonify({'error': '未登录'}), 401
+
+    path_items = []
+    for path, (file_id, cache_time) in path_cache.items():
+        meta = _cache_meta(cache_time, PATH_CACHE_EXPIRATION)
+        path_items.append({
+            "path": path,
+            "file_id": file_id,
+            **meta
+        })
+
+    url_items = []
+    for file_id, (url, cache_time) in url_cache.items():
+        meta = _cache_meta(cache_time, CACHE_EXPIRATION)
+        url_items.append({
+            "file_id": file_id,
+            "url": url,
+            **meta
+        })
+
+    path_items.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+    url_items.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+
+    return jsonify({
+        "path_cache": path_items,
+        "url_cache": url_items
+    })
+
+
+@app.route('/api/cache/path', methods=['POST'])
+def api_cache_delete_path():
+    """删除单个路径缓存"""
+    if not session.get('logged_in'):
+        return jsonify({'error': '未登录'}), 401
+    data = request.json or {}
+    path = data.get('path')
+    if not path:
+        return jsonify({'error': '缺少 path'}), 400
+    if path in path_cache:
+        del path_cache[path]
+    return jsonify({'success': True})
+
+
+@app.route('/api/cache/url', methods=['POST'])
+def api_cache_delete_url():
+    """删除单个链接缓存"""
+    if not session.get('logged_in'):
+        return jsonify({'error': '未登录'}), 401
+    data = request.json or {}
+    file_id = data.get('file_id')
+    try:
+        file_id = int(file_id)
+    except (TypeError, ValueError):
+        return jsonify({'error': 'file_id 无效'}), 400
+    if file_id in url_cache:
+        del url_cache[file_id]
+    return jsonify({'success': True})
 
 
 # ==================== 302 直链路由 ====================

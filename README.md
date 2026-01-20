@@ -97,6 +97,11 @@ http://your-ip:8515/d/电影/test.mkv
 
 ## 📝 配置说明
 
+### 配置来源
+
+- 配置统一读取 `db/user.env`（Web 界面保存后会写入该文件）
+- `docker-compose.yml` 的环境变量不再作为应用配置来源
+
 ### 环境变量
 
 | 变量名 | 说明 | 默认值 |
@@ -146,6 +151,9 @@ http://your-ip:8515/d/电影/test.mkv
 | `/api/189/qrcode` | GET | 获取扫码登录二维码 |
 | `/api/189/qrcode/status` | GET | 检查扫码状态 |
 | `/api/clear-cache` | POST | 清除缓存 |
+| `/api/cache` | GET | 获取缓存详情 |
+| `/api/cache/path` | POST | 删除单条路径缓存 |
+| `/api/cache/url` | POST | 删除单条链接缓存 |
 | `/d/{path}` | GET | 302 重定向到直链（推荐） |
 | `/{path}` | GET | 302 重定向到直链 |
 
