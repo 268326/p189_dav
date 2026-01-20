@@ -2,8 +2,17 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#1e3c72">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="189 DAV">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
     <title>天翼网盘 302 服务 - 配置管理</title>
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="apple-touch-icon" href="/static/icon-192.svg">
+    <link rel="icon" type="image/svg+xml" href="/static/icon-192.svg">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
@@ -439,21 +448,169 @@
 
         /* 响应式 */
         @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            
             .container {
-                padding: 20px;
+                padding: 15px;
+                border-radius: 15px;
             }
 
             .header {
                 flex-direction: column;
-                align-items: flex-start;
+                align-items: stretch;
+                gap: 12px;
+            }
+            
+            .header-left {
+                justify-content: center;
+            }
+
+            .logo {
+                font-size: 32px;
             }
 
             h1 {
-                font-size: 22px;
+                font-size: 20px;
+            }
+            
+            .header-right {
+                justify-content: center;
+            }
+            
+            .btn {
+                padding: 8px 14px;
+                font-size: 13px;
+            }
+
+            .status-cards {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+            
+            .status-card {
+                padding: 15px;
+            }
+            
+            .status-card .value {
+                font-size: 20px;
+            }
+            
+            .tabs {
+                gap: 5px;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
+                -ms-overflow-style: none;
+            }
+            
+            .tabs::-webkit-scrollbar {
+                display: none;
+            }
+            
+            .tab {
+                padding: 8px 12px;
+                font-size: 13px;
+                white-space: nowrap;
+                flex-shrink: 0;
             }
 
             .section {
                 padding: 15px;
+                margin-bottom: 15px;
+            }
+            
+            .section h2 {
+                font-size: 16px;
+            }
+            
+            .config-item {
+                padding: 15px;
+            }
+            
+            .login-methods {
+                grid-template-columns: 1fr;
+            }
+            
+            .login-method {
+                padding: 15px;
+            }
+            
+            .login-method h4 {
+                font-size: 14px;
+            }
+            
+            #qrcode img {
+                max-width: 200px;
+                height: auto;
+            }
+            
+            table {
+                font-size: 12px;
+            }
+            
+            table th, table td {
+                padding: 8px 5px !important;
+            }
+            
+            pre {
+                font-size: 11px;
+                padding: 10px !important;
+                overflow-x: auto;
+            }
+            
+            .notification {
+                left: 10px;
+                right: 10px;
+                top: auto;
+                bottom: 20px;
+                border-radius: 10px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            body {
+                padding: 8px;
+            }
+            
+            .container {
+                padding: 12px;
+                border-radius: 12px;
+            }
+            
+            h1 {
+                font-size: 18px;
+            }
+            
+            .status-card .value {
+                font-size: 18px;
+            }
+            
+            .btn {
+                padding: 8px 12px;
+                font-size: 12px;
+            }
+            
+            .login-method input {
+                padding: 10px;
+                font-size: 14px;
+            }
+        }
+        
+        /* iOS 安全区域适配 */
+        @supports (padding: max(0px)) {
+            body {
+                padding-left: max(10px, env(safe-area-inset-left));
+                padding-right: max(10px, env(safe-area-inset-right));
+                padding-bottom: max(10px, env(safe-area-inset-bottom));
+            }
+        }
+        
+        /* PWA 独立模式下的样式 */
+        @media (display-mode: standalone) {
+            body {
+                padding-top: env(safe-area-inset-top, 20px);
             }
         }
     </style>
@@ -945,6 +1102,15 @@ GET http://your-ip:8515/d/path/to/file.mkv</pre>
         // 隐藏 Loading
         function hideLoading() {
             document.getElementById('loadingOverlay').classList.remove('show');
+        }
+        
+        // 注册 Service Worker (PWA)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/static/sw.js')
+                    .then(reg => console.log('SW registered'))
+                    .catch(err => console.log('SW registration failed:', err));
+            });
         }
     </script>
 </body>
