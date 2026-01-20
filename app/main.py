@@ -398,6 +398,34 @@ def api_status():
     })
 
 
+@app.route('/api/189/cookies')
+def get_189_cookies():
+    """获取天翼网盘 Cookies"""
+    if not session.get('logged_in'):
+        return jsonify({'error': '未登录'}), 401
+    
+    if client is None:
+        return jsonify({'error': '天翼网盘未登录'}), 400
+    
+    try:
+        # 获取 cookies
+        cookies_dict = {}
+        for cookie in client.session.cookies:
+            cookies_dict[cookie.name] = cookie.value
+        
+        # 转换为字符串格式
+        cookies_str = '; '.join([f'{k}={v}' for k, v in cookies_dict.items()])
+        
+        return jsonify({
+            'success': True,
+            'cookies': cookies_str,
+            'cookies_dict': cookies_dict
+        })
+    except Exception as e:
+        logger.error(f"获取 Cookies 失败: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/env')
 def get_env_config():
     """获取配置"""
