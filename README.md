@@ -22,22 +22,26 @@
 # docker-compose.yml
 services:
   tianyi-302:
-    image: ghcr.io/268326/p189_dav:latest
+    # 使用 GitHub Container Registry 镜像（支持 amd64/arm64）
+    #image: ghcr.io/268326/p189_dav:latest
+    # 或者本地构建：取消下面注释，注释上面的 image
+    build: .
     container_name: tianyi-302
     restart: always
     ports:
       - "8515:8515"
     volumes:
+      # 持久化数据目录（cookies、配置等）
       - ./db:/app/db
     environment:
+      # ========== 时区设置 ==========
       - TZ=Asia/Shanghai
-      - ENV_WEB_PASSPORT=admin
-      - ENV_WEB_PASSWORD=123456
-      - ENV_189_COOKIES_FILE=/app/db/cookies.txt
-      # 缓存配置（设为 0 关闭缓存）
-      - CACHE_EXPIRATION=0
-      - PATH_CACHE_EXPIRATION=0
-      - MAX_CACHE_302LINK=0
+      # 应用配置统一在 ./db/user.env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8515/api/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 ```
 
 ```bash
