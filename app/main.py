@@ -284,13 +284,18 @@ def _check_accounts_health() -> dict[str, dict]:
         ok = False
         err_msg: str | None = None
         try:
-            resp = c.user_info_brief()
-            res_code = resp.get("res_code")
+            resp = c.fs_list_portal(
+                {"fileId": -11, "pageNum": 1, "pageSize": 1}
+            )
             error_code = resp.get("errorCode")
-            if res_code in (0, "0", None) or error_code in (0, "0", None):
-                ok = True
+            res_code = resp.get("res_code")
+            error_msg = resp.get("errorMsg") or resp.get("res_message") or ""
+            if error_code == "InvalidSessionKey" or "check ip error" in error_msg:
+                err_msg = f"Session 失效（IP 变更）: {error_msg}"
+            elif error_code not in (0, "0", None) and res_code not in (0, "0", None):
+                err_msg = error_msg or f"errorCode={error_code}"
             else:
-                err_msg = resp.get("res_message") or resp.get("errorMsg") or f"res_code={res_code}"
+                ok = True
         except Exception as e:
             err_msg = str(e)
 
@@ -1227,11 +1232,7 @@ def _fresh_login_url_params() -> dict:
     解决多账号场景下共享 httpx 客户端携带旧 cookies 导致
     login_url 被直接重定向到已登录页面、拿不到 lt/reqId 的问题。
     """
-    proxy_map = {}
-    if PROXY_URL:
-        proxy_map = {"http://": PROXY_URL, "https://": PROXY_URL}
-
-    with httpx.Client(follow_redirects=True, proxies=proxy_map, timeout=15) as client:
+    with httpx.Client(follow_redirects=True, proxy=PROXY_URL or None, timeout=15) as client:
         resp = client.get(
             "https://cloud.189.cn/api/portal/loginUrl.action",
             params={
