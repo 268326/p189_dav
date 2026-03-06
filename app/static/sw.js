@@ -1,7 +1,5 @@
-const CACHE_NAME = 'p189-dav-v1';
+const CACHE_NAME = 'p189-dav-v2';
 const STATIC_ASSETS = [
-  '/',
-  '/login',
   '/static/manifest.json',
   '/static/icon-192.svg',
   '/static/icon-512.svg',
@@ -34,42 +32,43 @@ self.addEventListener('activate', event => {
 // 拦截请求
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
-  
-  // API 请求不缓存
+  if (url.origin !== self.location.origin) return;
+
+  // API 和直链：直连网络，不缓存
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/d/')) {
     return event.respondWith(fetch(event.request));
   }
-  
-  // 静态资源使用缓存优先策略
+
+  // 主文档（/、/login）始终走网络，不缓存也不读缓存，避免页面被缓存导致刷新时请求被卸载取消
+  if (event.request.mode === 'navigate' && (url.pathname === '/' || url.pathname === '/login')) {
+    return event.respondWith(fetch(event.request));
+  }
+
+  // 静态资源：缓存优先
   event.respondWith(
     caches.match(event.request)
       .then(response => {
         if (response) {
-          // 后台更新缓存
           fetch(event.request).then(freshResponse => {
             if (freshResponse.ok) {
-              caches.open(CACHE_NAME).then(cache => {
-                cache.put(event.request, freshResponse);
-              });
+              caches.open(CACHE_NAME).then(cache => cache.put(event.request, freshResponse));
             }
           }).catch(() => {});
           return response;
         }
         return fetch(event.request).then(response => {
           if (response.ok && event.request.method === 'GET') {
-            const clonedResponse = response.clone();
-            caches.open(CACHE_NAME).then(cache => {
-              cache.put(event.request, clonedResponse);
-            });
+            const cloned = response.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, cloned));
           }
           return response;
         });
       })
       .catch(() => {
-        // 离线时返回缓存的首页
         if (event.request.mode === 'navigate') {
-          return caches.match('/');
+          return caches.match('/').catch(() => fetch(event.request));
         }
+        return fetch(event.request);
       })
   );
 });

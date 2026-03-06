@@ -1,8 +1,8 @@
 services:
   tianyi-302:
-    # 使用 GitHub Container Registry 镜像（支持 amd64/arm64）
+    # 使用 GitHub Container Registry 镜像（优化完成后可改回：注释 build，取消下面 image 注释）
     #image: ghcr.io/268326/p189_dav:latest
-    # 或者本地构建：取消下面注释，注释上面的 image
+    # 本地构建（当前）
     build: .
     container_name: tianyi-302
     restart: always

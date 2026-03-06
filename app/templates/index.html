@@ -769,8 +769,23 @@
 
         <!-- 天翼网盘登录 Tab -->
         <div id="tab-tianyi" class="tab-content active">
+            <div class="login-section" style="margin-bottom: 25px;">
+                <h3><i class="fas fa-users"></i> 多账号管理</h3>
+                <p style="font-size: 13px; color: #666; margin-bottom: 12px;">通过路径前缀区分账号，例如 <code>/default/电影/xxx.mkv</code> 或 <code>/work/文档/yyy.pdf</code>。不写前缀时使用默认账号。</p>
+                <div id="accountListContainer" style="margin-bottom: 15px;">
+                    <p style="color:#888;">加载中...</p>
+                </div>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                    <input type="text" id="newAccountKey" placeholder="账号 key（字母/数字/下划线）" style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; width: 200px;">
+                    <input type="text" id="newAccountLabel" placeholder="显示名称（可选）" style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; width: 140px;">
+                    <button class="btn btn-primary" onclick="addAccount()"><i class="fas fa-plus"></i> 添加账号</button>
+                    <button class="btn" onclick="runHealthCheck()" id="healthCheckBtn" style="margin-left:auto;"><i class="fas fa-heartbeat"></i> 检测账号状态</button>
+                </div>
+                <div id="healthCheckResult" style="margin-top:10px;display:none;"></div>
+            </div>
             <div class="login-section">
                 <h3><i class="fas fa-sign-in-alt"></i> 登录天翼网盘</h3>
+                <p style="margin-bottom: 10px; font-size: 13px; color: #666;">当前操作账号：<select id="currentAccountSelect" style="padding: 6px 10px; border-radius: 6px; border: 1px solid #1e3c72; min-width: 160px;"></select></p>
                 <div class="login-methods">
                     <!-- 扫码登录 -->
                     <div class="login-method">
@@ -865,17 +880,18 @@
                         <table class="cache-table">
                             <thead>
                                 <tr>
-                                    <th style="width:18%;">文件ID</th>
-                                    <th style="width:16%;">文件名</th>
-                                    <th style="width:34%;">下载链接</th>
-                                    <th style="width:16%;">创建时间</th>
-                                    <th style="width:16%;">有效期</th>
-                                    <th style="width:10%;">剩余</th>
+                                    <th style="width:8%;">账号</th>
+                                    <th style="width:10%;">文件ID</th>
+                                    <th style="width:14%;">文件名</th>
+                                    <th style="width:32%;">下载链接</th>
+                                    <th style="width:14%;">创建时间</th>
+                                    <th style="width:14%;">有效期</th>
+                                    <th style="width:8%;">剩余</th>
                                     <th style="width:6%;">操作</th>
                                 </tr>
                             </thead>
                             <tbody id="urlCacheBody">
-                                <tr><td class="cache-empty" colspan="7">加载中...</td></tr>
+                                <tr><td class="cache-empty" colspan="8">加载中...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -887,16 +903,17 @@
                         <table class="cache-table">
                             <thead>
                                 <tr>
-                                    <th style="width:30%;">缓存路径</th>
+                                    <th style="width:10%;">账号</th>
+                                    <th style="width:28%;">缓存路径</th>
                                     <th style="width:12%;">文件ID</th>
                                     <th style="width:16%;">创建时间</th>
                                     <th style="width:16%;">有效期</th>
                                     <th style="width:12%;">剩余</th>
-                                    <th style="width:14%;">操作</th>
+                                    <th style="width:10%;">操作</th>
                                 </tr>
                             </thead>
                             <tbody id="pathCacheBody">
-                                <tr><td class="cache-empty" colspan="6">加载中...</td></tr>
+                                <tr><td class="cache-empty" colspan="7">加载中...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -909,11 +926,12 @@
             <div class="section">
                 <h2><i class="fas fa-play-circle"></i> 快速开始</h2>
                 <div class="config-item">
-                    <p>1. 首先在【天翼网盘登录】标签页登录你的天翼网盘账号</p>
+                    <p>1. 首先在【天翼网盘登录】标签页添加账号并登录天翼网盘</p>
                     <p style="margin-top:10px;">2. 登录成功后，访问以下格式的 URL 即可获取文件直链：</p>
                     <pre style="background:#f4f4f4;padding:15px;margin-top:10px;border-radius:8px;overflow-x:auto;">
-GET http://your-ip:8515/path/to/file.mkv
-GET http://your-ip:8515/d/path/to/file.mkv</pre>
+GET http://your-ip:8515/path/to/file.mkv          （使用默认账号）
+GET http://your-ip:8515/d/path/to/file.mkv        （使用默认账号）
+GET http://your-ip:8515/账号key/路径/file.mkv      （指定账号，多账号时）</pre>
                     <p style="margin-top:10px;">3. 服务会返回 302 重定向到天翼网盘的下载直链</p>
                 </div>
             </div>
@@ -991,10 +1009,20 @@ GET http://your-ip:8515/d/path/to/file.mkv</pre>
         let configData = {};
         let qrCheckInterval = null;
 
-        // 初始化
+        // 初始化：延迟一帧再请求，避免页面在 SW 激活或重定向时被卸载导致请求被取消
         document.addEventListener('DOMContentLoaded', function() {
-            checkStatus();
-            loadConfig();
+            function runInit() {
+                try {
+                    checkStatus();
+                    loadConfig();
+                    loadAccounts();
+                } catch (e) {
+                    console.error('init error', e);
+                }
+            }
+            setTimeout(runInit, 80);
+            // 若首次请求被取消（如刷新导致），约 600ms 后再试一次，避免一直停在「检查中...」「加载中...」
+            setTimeout(runInit, 600);
         });
 
         // 切换 Tab
@@ -1009,29 +1037,245 @@ GET http://your-ip:8515/d/path/to/file.mkv</pre>
             }
         }
 
+        let accountList = [];
+        function getCurrentAccountKey() {
+            const sel = document.getElementById('currentAccountSelect');
+            return sel ? (sel.value || 'default') : 'default';
+        }
+
+        async function loadAccounts() {
+            var container = document.getElementById('accountListContainer');
+            try {
+                await loadHealthStatus();
+                var resp = await fetch('/api/accounts');
+                var data = await resp.json().catch(function() { return { error: '响应解析失败' }; });
+                if (data.error) {
+                    if (container) container.innerHTML = '<p style="color:#dc3545;">' + (resp.status === 401 ? '请重新登录' : data.error) + '</p>';
+                    return;
+                }
+                if (!resp.ok) {
+                    if (container) container.innerHTML = '<p style="color:#dc3545;">加载失败 ' + resp.status + '，请刷新重试</p>';
+                    return;
+                }
+                accountList = data.accounts || [];
+                var sel = document.getElementById('currentAccountSelect');
+                if (sel) {
+                    var currentVal = sel.value;
+                    sel.innerHTML = accountList.map(function(a) {
+                        var key = a.key || 'default';
+                        var isSelected = (currentVal && currentVal === key) || (!currentVal && a.is_default);
+                        return '<option value="' + key + '" ' + (isSelected ? 'selected' : '') + '>' + (a.label || a.key) + (a.is_default ? ' (默认)' : '') + (a.logged_in ? ' ✓' : '') + '</option>';
+                    }).join('');
+                    if (!currentVal || !accountList.some(function(a) { return (a.key || 'default') === currentVal; })) {
+                        var defaultOpt = accountList.find(function(a) { return a.is_default; }) || accountList[0];
+                        if (defaultOpt && sel.options.length) sel.value = defaultOpt.key || 'default';
+                    }
+                }
+                if (!container) return;
+                if (accountList.length === 0) {
+                    container.innerHTML = '<p style="color:#888;">暂无账号，请添加。</p>';
+                    return;
+                }
+                var rows = '';
+                for (var i = 0; i < accountList.length; i++) {
+                    var a = accountList[i];
+                    var ek = String(a.key).replace(/'/g, "\\'");
+                    var defBtn = a.is_default ? '' : '<button class="btn" style="padding:4px 8px;font-size:12px;margin-right:4px;" onclick="setDefaultAccount(\'' + ek + '\')">设为默认</button>';
+                    var delBtn = accountList.length > 1 ? '<button class="btn btn-danger" style="padding:4px 8px;font-size:12px;margin-right:4px;" onclick="removeAccount(\'' + ek + '\')">删除</button>' : '';
+                    var cfgBtn = '<button class="btn" style="padding:4px 8px;font-size:12px;" onclick="configAutoLogin(\'' + ek + '\')"><i class="fas fa-cog"></i></button>';
+                    var healthCell = formatHealthCell(a.key);
+                    var autoCell = formatAutoLogin(a.auto_login);
+                    rows += '<tr><td style="padding:8px;">' + (a.label || a.key) + ' <code>' + (a.key || '') + '</code> ' + (a.is_default ? '<span style="background:#1e3c72;color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;">默认</span>' : '') + '</td><td style="padding:8px;">' + (a.logged_in ? '<span style="color:#28a745;">已连接</span>' : '<span style="color:#dc3545;">未连接</span>') + '</td><td style="padding:8px;">' + healthCell + '</td><td style="padding:8px;">' + autoCell + ' ' + cfgBtn + '</td><td style="padding:8px;">' + defBtn + delBtn + '</td></tr>';
+                }
+                container.innerHTML = '<table class="cache-table" style="width:100%;border-collapse:collapse;"><thead><tr><th style="text-align:left;padding:8px;">账号</th><th style="text-align:left;padding:8px;">连接</th><th style="text-align:left;padding:8px;">健康</th><th style="text-align:left;padding:8px;">自动登录</th><th style="text-align:left;padding:8px;">操作</th></tr></thead><tbody>' + rows + '</tbody></table>';
+            } catch (e) {
+                console.error('loadAccounts error', e);
+                if (container) container.innerHTML = '<p style="color:#dc3545;">加载失败，请刷新重试</p>';
+            }
+        }
+
+        async function loadHealthStatus() {
+            try {
+                var resp = await fetch('/api/health');
+                if (!resp.ok) return;
+                var data = await resp.json();
+                window._healthData = data.accounts || {};
+            } catch (e) { console.error('loadHealth error', e); }
+        }
+
+        function formatHealthCell(key) {
+            var h = (window._healthData || {})[key];
+            if (!h) return '';
+            if (h.ok) {
+                var ago = h.ts ? Math.round((Date.now() / 1000 - h.ts) / 60) : 0;
+                return '<span style="color:#28a745;font-size:12px;" title="上次检查: ' + ago + '分钟前">✓ 正常</span>';
+            }
+            return '<span style="color:#dc3545;font-size:12px;" title="' + (h.error || '') + '">✗ ' + (h.error || '异常') + '</span>';
+        }
+
+        async function runHealthCheck() {
+            var btn = document.getElementById('healthCheckBtn');
+            var resultDiv = document.getElementById('healthCheckResult');
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 检测中...'; }
+            try {
+                var resp = await fetch('/api/health/check', { method: 'POST' });
+                var data = await resp.json();
+                if (data.error) { showNotification(data.error, 'error'); return; }
+                var results = data.results || {};
+                var html = '<div style="padding:10px;background:#f8f9fa;border-radius:8px;font-size:13px;">';
+                var keys = Object.keys(results);
+                for (var i = 0; i < keys.length; i++) {
+                    var k = keys[i];
+                    var r = results[k];
+                    var icon = r.ok ? '<span style="color:#28a745;">✓</span>' : '<span style="color:#dc3545;">✗</span>';
+                    html += '<div style="padding:3px 0;">' + icon + ' <b>' + k + '</b>: ' + (r.ok ? '正常' : (r.error || '异常')) + '</div>';
+                }
+                html += '</div>';
+                if (resultDiv) { resultDiv.style.display = 'block'; resultDiv.innerHTML = html; }
+                showNotification('账号检测完成', keys.every(function(k) { return results[k].ok; }) ? 'success' : 'error');
+                window._healthData = {};
+                for (var j = 0; j < keys.length; j++) { window._healthData[keys[j]] = results[keys[j]]; }
+                loadAccounts();
+            } catch (e) { showNotification('检测失败: ' + e.message, 'error'); }
+            finally { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-heartbeat"></i> 检测账号状态'; } }
+        }
+
+        function formatAutoLogin(method) {
+            if (method === 'password') return '<span style="color:#1e3c72;font-size:12px;">🔑 密码</span>';
+            if (method === 'qrcode') return '<span style="color:#6f42c1;font-size:12px;">📱 扫码</span>';
+            return '<span style="color:#888;font-size:12px;">关闭</span>';
+        }
+
+        async function configAutoLogin(accountKey) {
+            try {
+                var resp = await fetch('/api/accounts/auto-login/' + encodeURIComponent(accountKey));
+                var data = await resp.json();
+                if (data.error) { showNotification(data.error, 'error'); return; }
+                var method = data.method || 'none';
+                var username = data.username || '';
+                var html = '<div style="padding:15px;background:#f8f9fa;border-radius:8px;margin-top:10px;" id="autoLoginForm_' + accountKey + '">'
+                    + '<h4 style="margin:0 0 10px;">自动重登录设置 — ' + accountKey + '</h4>'
+                    + '<div style="margin-bottom:10px;">'
+                    + '<label style="margin-right:15px;cursor:pointer;"><input type="radio" name="alm_' + accountKey + '" value="none" ' + (method === 'none' ? 'checked' : '') + ' onchange="toggleAutoLoginFields(\'' + accountKey + '\')"> 关闭</label>'
+                    + '<label style="margin-right:15px;cursor:pointer;"><input type="radio" name="alm_' + accountKey + '" value="password" ' + (method === 'password' ? 'checked' : '') + ' onchange="toggleAutoLoginFields(\'' + accountKey + '\')"> 密码自动登录</label>'
+                    + '<label style="cursor:pointer;"><input type="radio" name="alm_' + accountKey + '" value="qrcode" ' + (method === 'qrcode' ? 'checked' : '') + ' onchange="toggleAutoLoginFields(\'' + accountKey + '\')"> 扫码（发到TG）</label>'
+                    + '</div>'
+                    + '<div id="pwFields_' + accountKey + '" style="display:' + (method === 'password' ? 'flex' : 'none') + ';gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">'
+                    + '<input type="text" id="alUser_' + accountKey + '" placeholder="天翼网盘用户名/手机号" value="' + username + '" style="padding:8px 12px;border:1px solid #ddd;border-radius:8px;width:200px;">'
+                    + '<input type="password" id="alPass_' + accountKey + '" placeholder="密码' + (data.has_password ? '（已设置）' : '') + '" style="padding:8px 12px;border:1px solid #ddd;border-radius:8px;width:200px;">'
+                    + '</div>'
+                    + '<div style="display:flex;gap:8px;">'
+                    + '<button class="btn btn-primary" onclick="saveAutoLogin(\'' + accountKey + '\')">保存</button>'
+                    + '<button class="btn" onclick="closeAutoLoginForm(\'' + accountKey + '\')">取消</button>'
+                    + '</div>'
+                    + '</div>';
+                var existing = document.getElementById('autoLoginForm_' + accountKey);
+                if (existing) { existing.outerHTML = html; return; }
+                var container = document.getElementById('accountListContainer');
+                if (container) container.insertAdjacentHTML('afterend', html);
+            } catch (e) { showNotification('加载失败: ' + e.message, 'error'); }
+        }
+
+        function toggleAutoLoginFields(accountKey) {
+            var radios = document.querySelectorAll('input[name="alm_' + accountKey + '"]');
+            var method = 'none';
+            for (var i = 0; i < radios.length; i++) { if (radios[i].checked) method = radios[i].value; }
+            var el = document.getElementById('pwFields_' + accountKey);
+            if (el) el.style.display = method === 'password' ? 'flex' : 'none';
+        }
+
+        function closeAutoLoginForm(accountKey) {
+            var el = document.getElementById('autoLoginForm_' + accountKey);
+            if (el) el.remove();
+        }
+
+        async function saveAutoLogin(accountKey) {
+            var radios = document.querySelectorAll('input[name="alm_' + accountKey + '"]');
+            var method = 'none';
+            for (var i = 0; i < radios.length; i++) { if (radios[i].checked) method = radios[i].value; }
+            var body = { account_key: accountKey, method: method };
+            if (method === 'password') {
+                body.username = (document.getElementById('alUser_' + accountKey) || {}).value || '';
+                body.password = (document.getElementById('alPass_' + accountKey) || {}).value || '';
+                if (!body.username || !body.password) { showNotification('请填写用户名和密码', 'error'); return; }
+            }
+            try {
+                var resp = await fetch('/api/accounts/auto-login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+                var data = await resp.json();
+                if (data.success) {
+                    showNotification('自动登录设置已保存', 'success');
+                    closeAutoLoginForm(accountKey);
+                    loadAccounts();
+                } else { showNotification(data.error || '保存失败', 'error'); }
+            } catch (e) { showNotification('保存失败: ' + e.message, 'error'); }
+        }
+
+        async function addAccount() {
+            var keyEl = document.getElementById('newAccountKey');
+            var labelEl = document.getElementById('newAccountLabel');
+            var key = keyEl ? keyEl.value.trim() : '';
+            var label = labelEl ? labelEl.value.trim() : '';
+            if (!key) { showNotification('请输入账号 key', 'error'); return; }
+            if (!/^[a-zA-Z0-9_]+$/.test(key)) { showNotification('账号 key 仅允许字母、数字、下划线', 'error'); return; }
+            try {
+                var resp = await fetch('/api/accounts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: key, label: label || key }) });
+                var data = await resp.json();
+                if (data.success) {
+                    showNotification('账号已添加', 'success');
+                    if (keyEl) keyEl.value = ''; if (labelEl) labelEl.value = '';
+                    loadAccounts(); checkStatus();
+                } else { showNotification(data.error || '添加失败', 'error'); }
+            } catch (e) { showNotification('添加失败: ' + e.message, 'error'); }
+        }
+
+        async function setDefaultAccount(accountKey) {
+            try {
+                var resp = await fetch('/api/accounts/set-default', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ account_key: accountKey }) });
+                var data = await resp.json();
+                if (data.success) { showNotification('已设为默认账号', 'success'); loadAccounts(); checkStatus(); } else { showNotification(data.error || '设置失败', 'error'); }
+            } catch (e) { showNotification('设置失败', 'error'); }
+        }
+
+        async function removeAccount(accountKey) {
+            if (!confirm('确定删除该账号？其登录状态与缓存将被清除。')) return;
+            try {
+                var resp = await fetch('/api/accounts/' + encodeURIComponent(accountKey), { method: 'DELETE' });
+                var data = await resp.json();
+                if (data.success) { showNotification('账号已删除', 'success'); loadAccounts(); checkStatus(); } else { showNotification(data.error || '删除失败', 'error'); }
+            } catch (e) { showNotification('删除失败', 'error'); }
+        }
+
         // 检查状态
         async function checkStatus() {
+            var statusCard = document.getElementById('statusCard');
+            var cloudStatus = document.getElementById('cloudStatus');
+            var pathEl = document.getElementById('pathCacheSize');
+            var urlEl = document.getElementById('urlCacheSize');
             try {
-                const resp = await fetch('/api/status');
-                const data = await resp.json();
-                
-                const statusCard = document.getElementById('statusCard');
-                const cloudStatus = document.getElementById('cloudStatus');
-                
-                if (data.logged_in) {
-                    cloudStatus.textContent = '已连接';
-                    statusCard.classList.add('success');
-                    statusCard.classList.remove('danger');
-                } else {
-                    cloudStatus.textContent = '未连接';
-                    statusCard.classList.add('danger');
-                    statusCard.classList.remove('success');
+                var resp = await fetch('/api/status');
+                if (!resp.ok) throw new Error('status ' + resp.status);
+                var data = await resp.json();
+                if (cloudStatus) {
+                    if (data.logged_in) {
+                        cloudStatus.textContent = '已连接';
+                        if (statusCard) { statusCard.classList.add('success'); statusCard.classList.remove('danger'); }
+                    } else {
+                        cloudStatus.textContent = '未连接';
+                        if (statusCard) { statusCard.classList.add('danger'); statusCard.classList.remove('success'); }
+                    }
+                    if (data.accounts && data.accounts.length) {
+                        var logged = data.accounts.filter(function(a) { return a.logged_in; }).length;
+                        cloudStatus.textContent = data.logged_in ? ('已连接 (' + logged + '/' + data.accounts.length + ')') : '未连接';
+                    }
                 }
-                
-                document.getElementById('pathCacheSize').textContent = data.path_cache_size || 0;
-                document.getElementById('urlCacheSize').textContent = data.url_cache_size || 0;
+                if (pathEl) pathEl.textContent = (data.path_cache_size != null && data.path_cache_size !== '') ? data.path_cache_size : '0';
+                if (urlEl) urlEl.textContent = (data.url_cache_size != null && data.url_cache_size !== '') ? data.url_cache_size : '0';
             } catch (e) {
-                console.error(e);
+                console.error('checkStatus error', e);
+                if (cloudStatus) cloudStatus.textContent = '未连接';
+                if (statusCard) { statusCard.classList.add('danger'); statusCard.classList.remove('success'); }
+                if (pathEl) pathEl.textContent = '-';
+                if (urlEl) urlEl.textContent = '-';
             }
         }
 
@@ -1116,9 +1360,9 @@ GET http://your-ip:8515/d/path/to/file.mkv</pre>
         // 获取二维码
         async function getQRCode() {
             showLoading('获取二维码中...');
-            
+            var accountKey = getCurrentAccountKey();
             try {
-                const resp = await fetch('/api/189/qrcode');
+                const resp = await fetch('/api/189/qrcode?account_key=' + encodeURIComponent(accountKey));
                 const data = await resp.json();
                 
                 if (data.error) {
@@ -1144,7 +1388,7 @@ GET http://your-ip:8515/d/path/to/file.mkv</pre>
                 
                 // 开始轮询
                 if (qrCheckInterval) clearInterval(qrCheckInterval);
-                qrCheckInterval = setInterval(checkQRStatus, 2000);
+                qrCheckInterval = setInterval(function() { checkQRStatus(accountKey); }, 2000);
             } catch (e) {
                 hideLoading();
                 showNotification('获取二维码失败: ' + e.message, 'error');
@@ -1152,28 +1396,51 @@ GET http://your-ip:8515/d/path/to/file.mkv</pre>
         }
 
         // 检查扫码状态
-        async function checkQRStatus() {
+        async function checkQRStatus(accountKey) {
+            if (!accountKey) accountKey = getCurrentAccountKey();
             try {
-                const resp = await fetch('/api/189/qrcode/status');
-                const data = await resp.json();
+                const resp = await fetch('/api/189/qrcode/status?account_key=' + encodeURIComponent(accountKey));
+                var data;
+                try {
+                    data = await resp.json();
+                } catch (e) {
+                    if (!resp.ok) {
+                        data = { error: '请求失败 ' + resp.status + '，请重试' };
+                    } else {
+                        throw e;
+                    }
+                }
                 
                 const statusDiv = document.getElementById('qrStatus');
+                if (!statusDiv) return;
                 
                 if (data.success) {
                     statusDiv.className = 'qr-status success';
                     statusDiv.textContent = '登录成功！';
-                    clearInterval(qrCheckInterval);
+                    if (qrCheckInterval) clearInterval(qrCheckInterval);
+                    qrCheckInterval = null;
                     checkStatus();
+                    loadAccounts();
                     showNotification('天翼网盘登录成功', 'success');
+                    setTimeout(function() { checkStatus(); loadAccounts(); }, 400);
                 } else if (data.error) {
                     statusDiv.className = 'qr-status error';
                     statusDiv.textContent = data.error;
-                    clearInterval(qrCheckInterval);
+                    if (qrCheckInterval) clearInterval(qrCheckInterval);
+                    qrCheckInterval = null;
+                    showNotification(data.error, 'error');
                 } else if (data.status) {
                     statusDiv.textContent = data.status;
                 }
             } catch (e) {
                 console.error(e);
+                var statusDiv = document.getElementById('qrStatus');
+                if (statusDiv) {
+                    statusDiv.className = 'qr-status error';
+                    statusDiv.textContent = '轮询异常，请重试';
+                }
+                if (qrCheckInterval) clearInterval(qrCheckInterval);
+                qrCheckInterval = null;
             }
         }
 
@@ -1188,12 +1455,13 @@ GET http://your-ip:8515/d/path/to/file.mkv</pre>
             }
             
             showLoading('登录中...');
+            var accountKey = getCurrentAccountKey();
             
             try {
                 const resp = await fetch('/api/189/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
+                    body: JSON.stringify({ account_key: accountKey, username: username, password: password })
                 });
                 
                 const data = await resp.json();
@@ -1221,12 +1489,13 @@ GET http://your-ip:8515/d/path/to/file.mkv</pre>
             }
             
             showLoading('登录中...');
+            var accountKey = getCurrentAccountKey();
             
             try {
                 const resp = await fetch('/api/189/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ cookies })
+                    body: JSON.stringify({ account_key: accountKey, cookies: cookies })
                 });
                 
                 const data = await resp.json();
@@ -1244,12 +1513,14 @@ GET http://your-ip:8515/d/path/to/file.mkv</pre>
             }
         }
 
-        // 登出天翼网盘
+        // 登出天翼网盘（当前选中账号）
         async function logoutTianyi() {
+            var accountKey = getCurrentAccountKey();
             try {
-                await fetch('/api/189/logout', { method: 'POST' });
-                showNotification('已登出天翼网盘', 'success');
+                await fetch('/api/189/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ account_key: accountKey }) });
+                showNotification('已登出当前账号', 'success');
                 document.getElementById('cookieDisplay').style.display = 'none';
+                loadAccounts();
                 checkStatus();
             } catch (e) {
                 showNotification('登出失败', 'error');
@@ -1259,9 +1530,9 @@ GET http://your-ip:8515/d/path/to/file.mkv</pre>
         // 获取 Cookie
         async function getCookies() {
             showLoading('获取 Cookie 中...');
-            
+            var accountKey = getCurrentAccountKey();
             try {
-                const resp = await fetch('/api/189/cookies');
+                const resp = await fetch('/api/189/cookies?account_key=' + encodeURIComponent(accountKey));
                 const data = await resp.json();
                 
                 if (data.error) {
@@ -1362,11 +1633,15 @@ GET http://your-ip:8515/d/path/to/file.mkv</pre>
         function renderPathCache(list) {
             const body = document.getElementById('pathCacheBody');
             if (!list || list.length === 0) {
-                body.innerHTML = '<tr><td class="cache-empty" colspan="6">暂无缓存数据</td></tr>';
+                body.innerHTML = '<tr><td class="cache-empty" colspan="7">暂无缓存数据</td></tr>';
                 return;
             }
-            body.innerHTML = list.map(item => `
+            body.innerHTML = list.map(item => {
+                const path = (item.path || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                const ak = (item.account_key || 'default').replace(/'/g, "\\'");
+                return `
                 <tr>
+                    <td><code>${escapeHtml(item.account_key || 'default')}</code></td>
                     <td class="cache-cell">
                         <div class="cell-main" title="${escapeHtml(item.path || '-')}">${escapeHtml(item.path || '-')}</div>
                         <div class="cell-actions">
@@ -1381,22 +1656,25 @@ GET http://your-ip:8515/d/path/to/file.mkv</pre>
                     <td>${formatDateTime(item.expires_at || '-')}</td>
                     <td>${formatRemaining(item.remaining_seconds)}</td>
                     <td>
-                        <button class="btn btn-danger" style="padding:6px 10px;font-size:12px;" onclick="deletePathCache('${(item.path || '').replace(/'/g, "\\'")}')">
+                        <button class="btn btn-danger" style="padding:6px 10px;font-size:12px;" onclick="deletePathCache('${path}', '${ak}')">
                             <i class="fas fa-trash"></i> 删除
                         </button>
                     </td>
                 </tr>
-            `).join('');
+            `}).join('');
         }
 
         function renderUrlCache(list) {
             const body = document.getElementById('urlCacheBody');
             if (!list || list.length === 0) {
-                body.innerHTML = '<tr><td class="cache-empty" colspan="7">暂无缓存数据</td></tr>';
+                body.innerHTML = '<tr><td class="cache-empty" colspan="8">暂无缓存数据</td></tr>';
                 return;
             }
-            body.innerHTML = list.map(item => `
+            body.innerHTML = list.map(item => {
+                const ak = (item.account_key || 'default').replace(/'/g, "\\'");
+                return `
                 <tr>
+                    <td><code>${escapeHtml(item.account_key || 'default')}</code></td>
                     <td>
                         <div class="cell-id" title="${item.file_id ?? '-'}">${item.file_id ?? '-'}</div>
                     </td>
@@ -1418,12 +1696,12 @@ GET http://your-ip:8515/d/path/to/file.mkv</pre>
                     <td>${formatDateTime(item.expires_at || '-')}</td>
                     <td>${formatRemaining(item.remaining_seconds)}</td>
                     <td>
-                        <button class="btn btn-danger" style="padding:6px 10px;font-size:12px;" onclick="deleteUrlCache('${item.file_id}')">
+                        <button class="btn btn-danger" style="padding:6px 10px;font-size:12px;" onclick="deleteUrlCache('${item.file_id}', '${ak}')">
                             <i class="fas fa-trash"></i> 删除
                         </button>
                     </td>
                 </tr>
-            `).join('');
+            `}).join('');
         }
 
         async function loadCache() {
@@ -1436,19 +1714,19 @@ GET http://your-ip:8515/d/path/to/file.mkv</pre>
                 renderPathCache(data.path_cache);
                 renderUrlCache(data.url_cache);
             } catch (e) {
-                document.getElementById('pathCacheBody').innerHTML = '<tr><td class="cache-empty" colspan="6">加载失败</td></tr>';
-                document.getElementById('urlCacheBody').innerHTML = '<tr><td class="cache-empty" colspan="7">加载失败</td></tr>';
+                document.getElementById('pathCacheBody').innerHTML = '<tr><td class="cache-empty" colspan="7">加载失败</td></tr>';
+                document.getElementById('urlCacheBody').innerHTML = '<tr><td class="cache-empty" colspan="8">加载失败</td></tr>';
                 showNotification('加载缓存失败: ' + e.message, 'error');
             }
         }
 
-        async function deletePathCache(path) {
+        async function deletePathCache(path, accountKey) {
             if (!path) return;
             try {
                 await fetch('/api/cache/path', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ path })
+                    body: JSON.stringify({ path: path, account_key: accountKey || undefined })
                 });
                 loadCache();
                 checkStatus();
@@ -1458,13 +1736,13 @@ GET http://your-ip:8515/d/path/to/file.mkv</pre>
             }
         }
 
-        async function deleteUrlCache(fileId) {
+        async function deleteUrlCache(fileId, accountKey) {
             if (!fileId) return;
             try {
                 await fetch('/api/cache/url', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ file_id: fileId })
+                    body: JSON.stringify({ file_id: fileId, account_key: accountKey || undefined })
                 });
                 loadCache();
                 checkStatus();
