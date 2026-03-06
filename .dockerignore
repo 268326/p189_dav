@@ -1,0 +1,10 @@
+__pycache__
+*.pyc
+*.pyo
+*.bak
+.git
+.gitignore
+db/
+*.md
+docker-compose.yml
+.dockerignore
