@@ -716,6 +716,149 @@
                 padding-top: env(safe-area-inset-top, 20px);
             }
         }
+
+        /* 账号信息卡片样式 */
+        .account-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+            gap: 18px;
+            margin-bottom: 18px;
+        }
+        .account-card {
+            background: white;
+            border-radius: 14px;
+            border: 1px solid #e0e6ed;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+        .account-card:hover {
+            box-shadow: 0 6px 24px rgba(30,60,114,0.12);
+            border-color: #b8c9e8;
+        }
+        .account-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 18px 12px;
+            background: linear-gradient(135deg, #f0f4fb 0%, #f8f9fc 100%);
+            border-bottom: 1px solid #eef1f6;
+        }
+        .account-card-header .acc-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+        }
+        .acc-avatar {
+            width: 42px; height: 42px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: #fff;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; font-weight: 700;
+            flex-shrink: 0;
+        }
+        .acc-name-block {
+            min-width: 0;
+        }
+        .acc-name-block .name {
+            font-size: 15px; font-weight: 600; color: #333;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .acc-name-block .sub {
+            font-size: 12px; color: #888; margin-top: 2px;
+            display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+        }
+        .acc-name-block .sub code {
+            background: #eef1f6; padding: 1px 6px; border-radius: 4px; font-size: 11px;
+        }
+        .acc-badge {
+            display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;
+        }
+        .acc-badge.default { background: #1e3c72; color: #fff; }
+        .acc-badge.online { background: #d4edda; color: #155724; }
+        .acc-badge.offline { background: #f8d7da; color: #721c24; }
+        .account-card-header .acc-actions {
+            display: flex; gap: 6px; align-items: center; flex-shrink: 0;
+        }
+        .acc-actions .btn-icon {
+            width: 32px; height: 32px; border-radius: 8px; border: 1px solid #d0d7e2;
+            background: #fff; color: #666; cursor: pointer; display: flex;
+            align-items: center; justify-content: center; font-size: 13px;
+            transition: all 0.2s;
+        }
+        .acc-actions .btn-icon:hover { background: #1e3c72; color: #fff; border-color: #1e3c72; }
+        .acc-actions .btn-icon.danger:hover { background: #dc3545; border-color: #dc3545; }
+        .acc-actions .btn-icon.refresh { position: relative; }
+        .acc-actions .btn-icon.refresh.spinning i { animation: spin 0.8s linear infinite; }
+
+        .account-card-body {
+            padding: 14px 18px 16px;
+        }
+        .info-metrics {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+        .info-metric {
+            text-align: center;
+        }
+        .info-metric .metric-label {
+            font-size: 11px; color: #999; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .info-metric .metric-value {
+            font-size: 14px; font-weight: 700; color: #333;
+        }
+        .info-metric .metric-sub {
+            font-size: 11px; color: #aaa; margin-top: 2px;
+        }
+        .mini-progress {
+            width: 100%; height: 4px; background: #eef1f6; border-radius: 2px; margin-top: 6px; overflow: hidden;
+        }
+        .mini-progress-fill {
+            height: 100%; border-radius: 2px; transition: width 0.6s ease;
+        }
+        .mini-progress-fill.low { background: linear-gradient(90deg, #28a745, #34ce57); }
+        .mini-progress-fill.medium { background: linear-gradient(90deg, #ffc107, #ffca2c); }
+        .mini-progress-fill.high { background: linear-gradient(90deg, #dc3545, #e35d6a); }
+
+        .account-card-body .detail-loading {
+            text-align: center; color: #aaa; padding: 16px 0; font-size: 13px;
+        }
+        .account-card-body .detail-error {
+            text-align: center; color: #dc3545; padding: 10px 0; font-size: 13px;
+        }
+
+        /* 账号操作区域 */
+        .account-card-footer {
+            padding: 0 18px 14px;
+            display: flex; gap: 6px; flex-wrap: wrap;
+        }
+        .account-card-footer .btn-sm {
+            padding: 5px 12px; font-size: 12px; border-radius: 6px; border: 1px solid #d0d7e2;
+            background: #fff; color: #555; cursor: pointer; transition: all 0.2s;
+            display: flex; align-items: center; gap: 4px;
+        }
+        .account-card-footer .btn-sm:hover { background: #f0f4fb; border-color: #1e3c72; color: #1e3c72; }
+        .account-card-footer .btn-sm.danger { color: #dc3545; border-color: #f0c0c5; }
+        .account-card-footer .btn-sm.danger:hover { background: #fdf2f2; }
+
+        @media (max-width: 768px) {
+            .account-cards {
+                grid-template-columns: 1fr;
+            }
+            .info-metrics {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 8px;
+            }
+            .account-card-header {
+                padding: 12px 14px 10px;
+            }
+            .account-card-body {
+                padding: 12px 14px 14px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -767,16 +910,25 @@
         <!-- 天翼网盘登录 Tab -->
         <div id="tab-tianyi" class="tab-content active">
             <div class="login-section" style="margin-bottom: 25px;">
-                <h3><i class="fas fa-users"></i> 多账号管理</h3>
-                <p style="font-size: 13px; color: #666; margin-bottom: 12px;">通过路径前缀区分账号，例如 <code>/default/电影/xxx.mkv</code> 或 <code>/work/文档/yyy.pdf</code>。不写前缀时使用默认账号。</p>
-                <div id="accountListContainer" style="margin-bottom: 15px;">
-                    <p style="color:#888;">加载中...</p>
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+                    <h3 style="margin:0;"><i class="fas fa-users"></i> 多账号管理</h3>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button class="btn" onclick="refreshAllAccountDetails()" id="refreshAllBtn" style="padding:7px 14px;font-size:13px;">
+                            <i class="fas fa-sync-alt"></i> 刷新全部
+                        </button>
+                        <button class="btn" onclick="runHealthCheck()" id="healthCheckBtn" style="padding:7px 14px;font-size:13px;">
+                            <i class="fas fa-heartbeat"></i> 检测状态
+                        </button>
+                    </div>
                 </div>
-                <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                <p style="font-size: 13px; color: #666; margin-bottom: 14px;">通过路径前缀区分账号，例如 <code>/default/电影/xxx.mkv</code> 或 <code>/work/文档/yyy.pdf</code>。不写前缀时使用默认账号。</p>
+                <div id="accountListContainer">
+                    <div style="text-align:center;color:#888;padding:30px;"><i class="fas fa-spinner fa-spin"></i> 加载中...</div>
+                </div>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 14px;">
                     <input type="text" id="newAccountKey" placeholder="账号 key（字母/数字/下划线）" style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; width: 200px;">
                     <input type="text" id="newAccountLabel" placeholder="显示名称（可选）" style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; width: 140px;">
                     <button class="btn btn-primary" onclick="addAccount()"><i class="fas fa-plus"></i> 添加账号</button>
-                    <button class="btn" onclick="runHealthCheck()" id="healthCheckBtn" style="margin-left:auto;"><i class="fas fa-heartbeat"></i> 检测账号状态</button>
                 </div>
                 <div id="healthCheckResult" style="margin-top:10px;display:none;"></div>
             </div>
@@ -1035,6 +1187,9 @@ GET http://your-ip:8515/账号key/路径/file.mkv      （指定账号，多账�
         }
 
         let accountList = [];
+        // 缓存账号详情数据
+        var _accountDetailsCache = {};
+
         function getCurrentAccountKey() {
             const sel = document.getElementById('currentAccountSelect');
             return sel ? (sel.value || 'default') : 'default';
@@ -1047,11 +1202,11 @@ GET http://your-ip:8515/账号key/路径/file.mkv      （指定账号，多账�
                 var resp = await fetch('/api/accounts');
                 var data = await resp.json().catch(function() { return { error: '响应解析失败' }; });
                 if (data.error) {
-                    if (container) container.innerHTML = '<p style="color:#dc3545;">' + (resp.status === 401 ? '请重新登录' : data.error) + '</p>';
+                    if (container) container.innerHTML = '<p style="color:#dc3545;text-align:center;padding:20px;">' + (resp.status === 401 ? '请重新登录' : data.error) + '</p>';
                     return;
                 }
                 if (!resp.ok) {
-                    if (container) container.innerHTML = '<p style="color:#dc3545;">加载失败 ' + resp.status + '，请刷新重试</p>';
+                    if (container) container.innerHTML = '<p style="color:#dc3545;text-align:center;padding:20px;">加载失败 ' + resp.status + '，请刷新重试</p>';
                     return;
                 }
                 accountList = data.accounts || [];
@@ -1070,24 +1225,194 @@ GET http://your-ip:8515/账号key/路径/file.mkv      （指定账号，多账�
                 }
                 if (!container) return;
                 if (accountList.length === 0) {
-                    container.innerHTML = '<p style="color:#888;">暂无账号，请添加。</p>';
+                    container.innerHTML = '<p style="color:#888;text-align:center;padding:30px;">暂无账号，请添加。</p>';
                     return;
                 }
-                var rows = '';
-                for (var i = 0; i < accountList.length; i++) {
-                    var a = accountList[i];
-                    var ek = String(a.key).replace(/'/g, "\\'");
-                    var defBtn = a.is_default ? '' : '<button class="btn" style="padding:4px 8px;font-size:12px;margin-right:4px;" onclick="setDefaultAccount(\'' + ek + '\')">设为默认</button>';
-                    var delBtn = accountList.length > 1 ? '<button class="btn btn-danger" style="padding:4px 8px;font-size:12px;margin-right:4px;" onclick="removeAccount(\'' + ek + '\')">删除</button>' : '';
-                    var cfgBtn = '<button class="btn" style="padding:4px 8px;font-size:12px;" onclick="configAutoLogin(\'' + ek + '\')"><i class="fas fa-cog"></i></button>';
-                    var healthCell = formatHealthCell(a.key);
-                    var autoCell = formatAutoLogin(a.auto_login);
-                    rows += '<tr><td style="padding:8px;">' + (a.label || a.key) + ' <code>' + (a.key || '') + '</code> ' + (a.is_default ? '<span style="background:#1e3c72;color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;">默认</span>' : '') + '</td><td style="padding:8px;">' + (a.logged_in ? '<span style="color:#28a745;">已连接</span>' : '<span style="color:#dc3545;">未连接</span>') + '</td><td style="padding:8px;">' + healthCell + '</td><td style="padding:8px;">' + autoCell + ' ' + cfgBtn + '</td><td style="padding:8px;">' + defBtn + delBtn + '</td></tr>';
-                }
-                container.innerHTML = '<table class="cache-table" style="width:100%;border-collapse:collapse;"><thead><tr><th style="text-align:left;padding:8px;">账号</th><th style="text-align:left;padding:8px;">连接</th><th style="text-align:left;padding:8px;">健康</th><th style="text-align:left;padding:8px;">自动登录</th><th style="text-align:left;padding:8px;">操作</th></tr></thead><tbody>' + rows + '</tbody></table>';
+                renderAccountCards(accountList);
+                // 自动加载已登录账号的详情
+                loadAllAccountDetails(false);
             } catch (e) {
                 console.error('loadAccounts error', e);
-                if (container) container.innerHTML = '<p style="color:#dc3545;">加载失败，请刷新重试</p>';
+                if (container) container.innerHTML = '<p style="color:#dc3545;text-align:center;padding:20px;">加载失败，请刷新重试</p>';
+            }
+        }
+
+        function renderAccountCards(accounts) {
+            var container = document.getElementById('accountListContainer');
+            var html = '<div class="account-cards">';
+            for (var i = 0; i < accounts.length; i++) {
+                var a = accounts[i];
+                var ek = String(a.key).replace(/'/g, "\\'");
+                var initial = (a.label || a.key || '?').charAt(0).toUpperCase();
+                var healthHtml = formatHealthCell(a.key);
+                var autoHtml = formatAutoLogin(a.auto_login);
+
+                html += '<div class="account-card" id="accountCard_' + a.key + '">';
+                // Header
+                html += '<div class="account-card-header">';
+                html += '<div class="acc-info">';
+                html += '<div class="acc-avatar">' + initial + '</div>';
+                html += '<div class="acc-name-block">';
+                html += '<div class="name">' + escapeHtml(a.label || a.key) + '</div>';
+                html += '<div class="sub">';
+                html += '<code>' + escapeHtml(a.key || '') + '</code>';
+                if (a.is_default) html += '<span class="acc-badge default">默认</span>';
+                html += '<span class="acc-badge ' + (a.logged_in ? 'online' : 'offline') + '">' + (a.logged_in ? '已连接' : '未连接') + '</span>';
+                html += '</div></div></div>'; // close sub, name-block, acc-info
+                // Actions
+                html += '<div class="acc-actions">';
+                if (a.logged_in) {
+                    html += '<button class="btn-icon refresh" id="refreshBtn_' + a.key + '" onclick="refreshAccountDetail(\'' + ek + '\')" title="刷新详情"><i class="fas fa-sync-alt"></i></button>';
+                }
+                html += '</div>';
+                html += '</div>'; // close header
+
+                // Body (detail area)
+                html += '<div class="account-card-body" id="accountBody_' + a.key + '">';
+                if (a.logged_in) {
+                    var cached = _accountDetailsCache[a.key];
+                    if (cached) {
+                        html += renderMetrics(cached);
+                    } else {
+                        html += '<div class="detail-loading"><i class="fas fa-spinner fa-spin"></i> 加载账号信息...</div>';
+                    }
+                } else {
+                    html += '<div class="detail-loading" style="color:#bbb;">账号未登录</div>';
+                }
+                html += '</div>';
+
+                // Footer (operations)
+                html += '<div class="account-card-footer">';
+                html += '<button class="btn-sm" onclick="configAutoLogin(\'' + ek + '\')"><i class="fas fa-cog"></i> ' + (autoHtml || '自动登录') + '</button>';
+                if (!a.is_default) html += '<button class="btn-sm" onclick="setDefaultAccount(\'' + ek + '\')"><i class="fas fa-star"></i> 设为默认</button>';
+                if (accounts.length > 1) html += '<button class="btn-sm danger" onclick="removeAccount(\'' + ek + '\')"><i class="fas fa-trash"></i> 删除</button>';
+                if (healthHtml) html += '<span style="font-size:12px;margin-left:auto;">' + healthHtml + '</span>';
+                html += '</div>';
+
+                html += '</div>'; // close account-card
+            }
+            html += '</div>'; // close account-cards
+            container.innerHTML = html;
+        }
+
+        function getCapacityBarClass(percent) {
+            if (percent >= 90) return 'high';
+            if (percent >= 70) return 'medium';
+            return 'low';
+        }
+
+        function renderMetrics(data) {
+            if (data.error) return '<div class="detail-error"><i class="fas fa-exclamation-circle"></i> ' + escapeHtml(data.error) + '</div>';
+
+            var html = '';
+            // Nickname / account line
+            var nick = data.nickname || '';
+            var acc = data.account || '';
+            if (nick && nick !== acc) {
+                html += '<div style="font-size:12px;color:#888;margin-bottom:10px;"><i class="fas fa-user" style="color:#1e3c72;margin-right:4px;"></i>' + escapeHtml(nick) + (acc ? ' <span style="color:#ccc;">|</span> ' + escapeHtml(acc) : '') + '</div>';
+            } else if (acc) {
+                html += '<div style="font-size:12px;color:#888;margin-bottom:10px;"><i class="fas fa-user" style="color:#1e3c72;margin-right:4px;"></i>' + escapeHtml(acc) + '</div>';
+            }
+
+            html += '<div class="info-metrics">';
+
+            // Personal
+            if (data.personal) {
+                var p = data.personal;
+                html += '<div class="info-metric">';
+                html += '<div class="metric-label"><i class="fas fa-hdd" style="margin-right:3px;"></i>个人盘</div>';
+                html += '<div class="metric-value">' + p.used_str + '</div>';
+                html += '<div class="metric-sub">/ ' + p.capacity_str + ' (' + p.percent + '%)</div>';
+                html += '<div class="mini-progress"><div class="mini-progress-fill ' + getCapacityBarClass(p.percent) + '" style="width:' + Math.min(p.percent, 100) + '%;"></div></div>';
+                html += '</div>';
+            }
+
+            // Family
+            if (data.family && (data.family.capacity > 0 || data.family.used > 0)) {
+                var f = data.family;
+                html += '<div class="info-metric">';
+                html += '<div class="metric-label"><i class="fas fa-home" style="margin-right:3px;"></i>家庭盘</div>';
+                html += '<div class="metric-value">' + f.used_str + '</div>';
+                html += '<div class="metric-sub">/ ' + f.capacity_str + ' (' + f.percent + '%)</div>';
+                html += '<div class="mini-progress"><div class="mini-progress-fill ' + getCapacityBarClass(f.percent) + '" style="width:' + Math.min(f.percent, 100) + '%;"></div></div>';
+                html += '</div>';
+            }
+
+            // Day flow
+            if (data.day_flow) {
+                var df = data.day_flow;
+                html += '<div class="info-metric">';
+                html += '<div class="metric-label"><i class="fas fa-exchange-alt" style="margin-right:3px;"></i>今日流量</div>';
+                html += '<div class="metric-value" style="color:#28a745;">' + df.remain_str + '</div>';
+                html += '<div class="metric-sub">剩余 / ' + df.total_str + '</div>';
+                html += '<div class="mini-progress"><div class="mini-progress-fill ' + getCapacityBarClass(df.percent_used) + '" style="width:' + Math.min(df.percent_used, 100) + '%;"></div></div>';
+                html += '</div>';
+            }
+
+            html += '</div>'; // info-metrics
+
+            // Cache hint
+            if (data.cached) {
+                html += '<div style="text-align:right;font-size:11px;color:#ccc;margin-top:8px;"><i class="fas fa-clock"></i> 缓存数据</div>';
+            }
+
+            return html;
+        }
+
+        async function loadAllAccountDetails(forceRefresh) {
+            var loggedIn = accountList.filter(function(a) { return a.logged_in; });
+            if (loggedIn.length === 0) return;
+
+            var url = '/api/accounts/details';
+            if (forceRefresh) url += '?refresh=1';
+
+            try {
+                var resp = await fetch(url);
+                var data = await resp.json();
+                if (data.error) return;
+                var details = data.details || {};
+                var keys = Object.keys(details);
+                for (var i = 0; i < keys.length; i++) {
+                    var key = keys[i];
+                    _accountDetailsCache[key] = details[key];
+                    var body = document.getElementById('accountBody_' + key);
+                    if (body) body.innerHTML = renderMetrics(details[key]);
+                }
+            } catch (e) {
+                console.error('loadAllAccountDetails error', e);
+            }
+        }
+
+        async function refreshAccountDetail(accountKey) {
+            var btn = document.getElementById('refreshBtn_' + accountKey);
+            if (btn) btn.classList.add('spinning');
+            var body = document.getElementById('accountBody_' + accountKey);
+            try {
+                var resp = await fetch('/api/accounts/detail/' + encodeURIComponent(accountKey) + '?refresh=1');
+                var data = await resp.json();
+                if (data.error) {
+                    if (body) body.innerHTML = '<div class="detail-error">' + escapeHtml(data.error) + '</div>';
+                } else {
+                    _accountDetailsCache[accountKey] = data;
+                    if (body) body.innerHTML = renderMetrics(data);
+                }
+            } catch (e) {
+                if (body) body.innerHTML = '<div class="detail-error">刷新失败: ' + e.message + '</div>';
+            } finally {
+                if (btn) btn.classList.remove('spinning');
+            }
+        }
+
+        async function refreshAllAccountDetails() {
+            var btn = document.getElementById('refreshAllBtn');
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 刷新中...'; }
+            try {
+                await loadAllAccountDetails(true);
+                showNotification('账号信息已刷新', 'success');
+            } catch (e) {
+                showNotification('刷新失败: ' + e.message, 'error');
+            } finally {
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sync-alt"></i> 刷新全部'; }
             }
         }
 
@@ -1142,6 +1467,8 @@ GET http://your-ip:8515/账号key/路径/file.mkv      （指定账号，多账�
             if (method === 'qrcode') return '<span style="color:#6f42c1;font-size:12px;">📱 扫码</span>';
             return '<span style="color:#888;font-size:12px;">关闭</span>';
         }
+
+        // ==================== 自动登录配置 ====================
 
         async function configAutoLogin(accountKey) {
             try {
