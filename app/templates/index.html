@@ -726,9 +726,6 @@
                 <h1>天翼网盘 302 服务</h1>
             </div>
             <div class="header-right">
-                <button class="btn" onclick="clearCache()">
-                    <i class="fas fa-trash-alt"></i> 清除缓存
-                </button>
                 <button class="btn btn-danger" onclick="logout()">
                     <i class="fas fa-sign-out-alt"></i> 退出登录
                 </button>
@@ -1571,7 +1568,11 @@ GET http://your-ip:8515/账号key/路径/file.mkv      （指定账号，多账�
         // 清除缓存
         async function clearCache() {
             try {
-                await fetch('/api/clear-cache', { method: 'POST' });
+                await fetch('/api/clear-cache', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
                 showNotification('缓存已清除', 'success');
                 checkStatus();
                 loadCache();

@@ -960,7 +960,7 @@ def login_page():
 @app.route('/api/login', methods=['POST'])
 def api_login():
     """登录 API"""
-    data = request.json
+    data = request.get_json(silent=True) or {}
     username = data.get('username')
     password = data.get('password')
     
@@ -1153,7 +1153,9 @@ def save_env_config():
     if not session.get('logged_in'):
         return jsonify({'error': '未登录'}), 401
     
-    data = request.json
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({'error': '无效的请求数据'}), 400
     with open(ENV_FILE_PATH, 'w', encoding='utf-8') as f:
         for section, items in data.items():
             f.write(f'# {section}\n')
@@ -1174,7 +1176,7 @@ def api_189_login():
     """天翼网盘登录（body 中可传 account_key，默认为 default）"""
     global clients
 
-    data = request.json or {}
+    data = request.get_json(silent=True) or {}
     account_key = (data.get('account_key') or "").strip() or "default"
     username = data.get('username')
     password = data.get('password')
@@ -1207,7 +1209,7 @@ def api_189_logout():
     """天翼网盘登出（body 中可传 account_key，不传则登出所有）"""
     global clients
 
-    data = request.json or {}
+    data = request.get_json(silent=True) or {}
     account_key = data.get('account_key')
 
     with clients_lock:
@@ -1433,7 +1435,7 @@ def api_189_qrcode_status():
 @app.route('/api/clear-cache', methods=['POST'])
 def api_clear_cache():
     """清除缓存（body 可传 account_key，不传则清除所有账号缓存）"""
-    data = request.json or {}
+    data = request.get_json(silent=True) or {}
     account_key = data.get('account_key')
     if account_key:
         if account_key in path_cache:
@@ -1527,7 +1529,7 @@ def api_cache_delete_path():
     """删除单个路径缓存（body 需 path，可选 account_key）"""
     if not session.get('logged_in'):
         return jsonify({'error': '未登录'}), 401
-    data = request.json or {}
+    data = request.get_json(silent=True) or {}
     path = data.get('path')
     account_key = data.get('account_key') or get_default_account_key()
     if not path:
@@ -1543,16 +1545,25 @@ def api_cache_delete_url():
     """删除单个链接缓存（body 需 file_id，可选 account_key）"""
     if not session.get('logged_in'):
         return jsonify({'error': '未登录'}), 401
-    data = request.json or {}
-    file_id = data.get('file_id')
+    data = request.get_json(silent=True) or {}
+    file_id_raw = data.get('file_id')
     account_key = data.get('account_key') or get_default_account_key()
-    try:
-        file_id = int(file_id)
-    except (TypeError, ValueError):
+    if file_id_raw is None or file_id_raw == '':
         return jsonify({'error': 'file_id 无效'}), 400
     uc = _url_cache(account_key)
-    if file_id in uc:
-        del uc[file_id]
+    # url_cache 的 key 可能是 int 或 str（取决于天翼 API 返回值），两种都尝试删除
+    deleted = False
+    for key_variant in (file_id_raw, str(file_id_raw)):
+        if key_variant in uc:
+            del uc[key_variant]
+            deleted = True
+    try:
+        int_key = int(file_id_raw)
+        if int_key in uc:
+            del uc[int_key]
+            deleted = True
+    except (TypeError, ValueError):
+        pass
     return jsonify({'success': True})
 
 
@@ -1584,7 +1595,7 @@ def api_accounts_add():
     """添加账号，body: { "key": "xxx", "label": "显示名" }"""
     if not session.get('logged_in'):
         return jsonify({'error': '未登录'}), 401
-    data = request.json or {}
+    data = request.get_json(silent=True) or {}
     key = (data.get("key") or "").strip()
     label = (data.get("label") or key or "").strip()
     if not key:
@@ -1606,7 +1617,7 @@ def api_accounts_set_default():
     """设置默认账号，body: { "account_key": "xxx" }"""
     if not session.get('logged_in'):
         return jsonify({'error': '未登录'}), 401
-    data = request.json or {}
+    data = request.get_json(silent=True) or {}
     key = (data.get("account_key") or "").strip()
     if key not in get_account_keys_set():
         return jsonify({"error": f"账号 [{key}] 不存在"}), 400
@@ -1645,7 +1656,7 @@ def api_accounts_auto_login():
     """设置账号自动登录方式，body: { account_key, method, username?, password? }"""
     if not session.get('logged_in'):
         return jsonify({'error': '未登录'}), 401
-    data = request.json or {}
+    data = request.get_json(silent=True) or {}
     key = (data.get("account_key") or "").strip()
     method = (data.get("method") or "none").strip()
     if key not in get_account_keys_set():
