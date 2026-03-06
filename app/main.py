@@ -17,11 +17,12 @@ import threading
 import html
 from collections import deque
 from pathlib import Path
-from urllib.parse import unquote
+from urllib.parse import unquote, parse_qsl, urlsplit
 
 from flask import Flask, request, jsonify, session, redirect, url_for, render_template
 from dotenv import dotenv_values
 import requests
+import httpx
 
 from p189client import P189Client, check_response
 
@@ -435,9 +436,7 @@ def _auto_relogin_qrcode(key: str, label: str) -> None:
         encryuuid = resp["encryuuid"]
         uuid = resp["uuid"]
 
-        conf = P189Client.login_url()
-        if isinstance(conf, str):
-            conf = _json.loads(conf)
+        conf = _fresh_login_url_params()
 
         app_conf = P189Client.login_app_conf(
             app_id,
@@ -1223,6 +1222,43 @@ def api_189_logout():
             return jsonify({'success': True, 'message': '已登出所有账号'})
 
 
+def _fresh_login_url_params() -> dict:
+    """用无 cookies 的干净请求获取 lt / reqId / url 登录参数。
+    解决多账号场景下共享 httpx 客户端携带旧 cookies 导致
+    login_url 被直接重定向到已登录页面、拿不到 lt/reqId 的问题。
+    """
+    proxy_map = {}
+    if PROXY_URL:
+        proxy_map = {"http://": PROXY_URL, "https://": PROXY_URL}
+
+    with httpx.Client(follow_redirects=True, proxies=proxy_map, timeout=15) as client:
+        resp = client.get(
+            "https://cloud.189.cn/api/portal/loginUrl.action",
+            params={
+                "redirectURL": "https://cloud.189.cn/web/redirect.html",
+                "defaultSaveName": 3,
+                "defaultSaveNameCheck": "uncheck",
+            },
+        )
+        # 优先从最终 URL 提取
+        url = str(resp.url)
+        data = dict(parse_qsl(urlsplit(url).query))
+        data["url"] = url
+        if "lt" in data and "reqId" in data:
+            return data
+
+        # 最终 URL 无 lt/reqId，检查中间重定向的 Location
+        for hist in resp.history:
+            loc = hist.headers.get("location", "")
+            if loc:
+                loc_data = dict(parse_qsl(urlsplit(loc).query))
+                if "lt" in loc_data and "reqId" in loc_data:
+                    loc_data["url"] = loc
+                    return loc_data
+
+        raise Exception(f"无法获取登录参数 (lt/reqId)，最终 URL: {url}")
+
+
 @app.route('/api/189/qrcode')
 def api_189_qrcode():
     """获取天翼网盘扫码登录二维码（可选 account_key 查询参数）"""
@@ -1245,9 +1281,7 @@ def api_189_qrcode():
 
         logger.info(f"获取到二维码 UUID: {uuid[:50]}...")
 
-        conf = P189Client.login_url()
-        if isinstance(conf, str):
-            conf = _json.loads(conf)
+        conf = _fresh_login_url_params()
 
         app_conf = P189Client.login_app_conf(
             app_id,
