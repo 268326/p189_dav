@@ -51,9 +51,9 @@ def cache_meta(cache_time: float, ttl_seconds: int) -> dict:
     if ttl_seconds <= 0:
         return {
             "created_at": format_ts(cache_time),
-            "expires_at": "-",
+            "expires_at": format_ts(cache_time),
             "ttl_seconds": ttl_seconds,
-            "remaining_seconds": -1,
+            "remaining_seconds": 0,
         }
     expires_at = cache_time + ttl_seconds
     remaining = max(0, int(expires_at - time.time()))
@@ -63,6 +63,61 @@ def cache_meta(cache_time: float, ttl_seconds: int) -> dict:
         "ttl_seconds": ttl_seconds,
         "remaining_seconds": remaining,
     }
+
+
+def purge_expired_cache(account_key: str | None = None) -> dict[str, int]:
+    """
+    清理已过期缓存。
+
+    :param account_key: 指定账号；不传则清理所有账号
+    :return: {"path": 清理条数, "url": 清理条数}
+    """
+    now = time.time()
+    removed_path = 0
+    removed_url = 0
+
+    if account_key:
+        account_keys = [account_key]
+    else:
+        account_keys = list(set(path_cache.keys()) | set(url_cache.keys()))
+
+    for ak in account_keys:
+        pc = path_cache.get(ak)
+        if pc:
+            if PATH_CACHE_EXPIRATION <= 0:
+                removed_path += len(pc)
+                pc.clear()
+            else:
+                expired_paths = [
+                    p for p, (_, cache_time) in list(pc.items())
+                    if now - cache_time >= PATH_CACHE_EXPIRATION
+                ]
+                for p in expired_paths:
+                    del pc[p]
+                    removed_path += 1
+            if not pc:
+                path_cache.pop(ak, None)
+
+        uc = url_cache.get(ak)
+        if uc:
+            if CACHE_EXPIRATION <= 0:
+                removed_url += len(uc)
+                uc.clear()
+            else:
+                expired_file_ids = [
+                    fid for fid, (_, cache_time) in list(uc.items())
+                    if now - cache_time >= CACHE_EXPIRATION
+                ]
+                for fid in expired_file_ids:
+                    del uc[fid]
+                    removed_url += 1
+            if not uc:
+                url_cache.pop(ak, None)
+
+    if removed_path or removed_url:
+        logger.debug(f"缓存过期清理完成: path={removed_path}, url={removed_url}")
+
+    return {"path": removed_path, "url": removed_url}
 
 
 # ==================== 核心业务 ====================
@@ -85,7 +140,7 @@ def resolve_path_to_file_id(file_path: str, account_key: str):
     current_time = time.time()
 
     # 检查缓存（带过期时间）
-    if file_path in pc:
+    if PATH_CACHE_EXPIRATION > 0 and file_path in pc:
         file_id, cache_time = pc[file_path]
         if current_time - cache_time < PATH_CACHE_EXPIRATION:
             remaining = (PATH_CACHE_EXPIRATION - (current_time - cache_time)) / 3600
@@ -105,7 +160,7 @@ def resolve_path_to_file_id(file_path: str, account_key: str):
         current_path += "/" + part
 
         # 检查当前级别的缓存
-        if current_path in pc:
+        if PATH_CACHE_EXPIRATION > 0 and current_path in pc:
             cached_id, cache_time = pc[current_path]
             if current_time - cache_time < PATH_CACHE_EXPIRATION:
                 current_folder_id = cached_id
@@ -133,12 +188,13 @@ def resolve_path_to_file_id(file_path: str, account_key: str):
                 item_id = item.get("fileId") or item.get("id")
                 item_path = current_path.rsplit("/", 1)[0] + "/" + item_name if current_path.count("/") > 1 else "/" + item_name
 
-                if item_path not in pc:
+                if PATH_CACHE_EXPIRATION > 0 and item_path not in pc:
                     pc[item_path] = (item_id, current_time)
 
                 if item_name == part:
                     current_folder_id = item_id
-                    pc[current_path] = (item_id, current_time)
+                    if PATH_CACHE_EXPIRATION > 0:
+                        pc[current_path] = (item_id, current_time)
                     found = True
 
             if found:
@@ -236,7 +292,7 @@ def get_download_url(file_id, account_key: str) -> str:
     current_time = time.time()
 
     # 检查缓存
-    if file_id in uc:
+    if CACHE_EXPIRATION > 0 and file_id in uc:
         cached_url, cache_time = uc[file_id]
         if current_time - cache_time < CACHE_EXPIRATION:
             remaining = (CACHE_EXPIRATION - (current_time - cache_time)) / 60
@@ -248,5 +304,6 @@ def get_download_url(file_id, account_key: str) -> str:
     c = get_client(account_key)
 
     download_url = _fetch_download_url(c, file_id, account_key)
-    uc[file_id] = (download_url, current_time)
+    if CACHE_EXPIRATION > 0:
+        uc[file_id] = (download_url, current_time)
     return download_url

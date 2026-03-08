@@ -20,7 +20,7 @@ from accounts import (
 )
 from cache import (
     path_cache, url_cache,
-    get_path_cache, get_url_cache, cache_meta,
+    get_path_cache, get_url_cache, cache_meta, purge_expired_cache,
 )
 from health import (
     health_check_lock, account_health, account_health_ts, account_health_err,
@@ -37,6 +37,7 @@ bp = Blueprint('api', __name__)
 @bp.route('/api/status')
 def api_status():
     """检查状态（含多账号列表）"""
+    purge_expired_cache()
     accounts = get_accounts_list()
     default_key = get_default_account_key()
     with clients_lock:
@@ -202,6 +203,7 @@ def api_cache_list():
         return jsonify({'error': '未登录'}), 401
 
     filter_key = request.args.get('account_key')
+    purge_expired_cache(filter_key or None)
     account_keys = [filter_key] if filter_key and filter_key in get_account_keys_set() else list(path_cache.keys()) or get_account_keys_set()
     if not account_keys:
         account_keys = get_account_keys_set()
